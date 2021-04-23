@@ -91,7 +91,7 @@ if (!usingRemoteCluster) {
 }
 
 ext {
-    opensearchVersion = '1.0'
+    opensearchVersion = '1.0.0'
     isSnapshot = "true" == System.getProperty("build.snapshot", "true")
     projectSubstitutions = [:]
     licenseFile = rootProject.file('LICENSE.TXT')
