@@ -25,16 +25,16 @@ jobs:
         with:
           java-version: ${{ matrix.java }}
 
-      # dependencies: OpenSearch
-      - name: Checkout OpenSearch
-        uses: actions/checkout@v2
-        with:
-          repository: 'opensearch-project/OpenSearch'
-          ref: '1.x'
-          path: OpenSearch
-      - name: Build OpenSearch
-        working-directory: ./OpenSearch
-        run: ./gradlew publishToMavenLocal -Dbuild.version_qualifier=rc1 -Dbuild.snapshot=false
+#      # dependencies: OpenSearch
+#      - name: Checkout OpenSearch
+#        uses: actions/checkout@v2
+#        with:
+#          repository: 'opensearch-project/OpenSearch'
+#          ref: '1.x'
+#          path: OpenSearch
+#      - name: Build OpenSearch
+#        working-directory: ./OpenSearch
+#        run: ./gradlew publishToMavenLocal -Dbuild.version_qualifier=rc1 -Dbuild.snapshot=false
 
       - name: Run build
         run: |
