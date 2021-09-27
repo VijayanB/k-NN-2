@@ -28,11 +28,17 @@ package org.opensearch.knn;
 import com.google.common.base.Charsets;
 import com.google.common.io.Resources;
 import org.opensearch.common.bytes.BytesReference;
+import org.opensearch.common.unit.TimeValue;
 import org.opensearch.common.xcontent.XContentHelper;
+import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.KNNQueryBuilder;
 import org.opensearch.knn.index.KNNSettings;
+import org.opensearch.knn.index.SpaceType;
+import org.opensearch.knn.index.util.KNNEngine;
+import org.opensearch.knn.indices.Model;
 import org.opensearch.knn.indices.ModelDao;
 import org.opensearch.knn.indices.ModelMetadata;
+import org.opensearch.knn.indices.ModelState;
 import org.opensearch.knn.plugin.KNNPlugin;
 import org.opensearch.knn.plugin.script.KNNScoringScriptEngine;
 import org.apache.http.util.EntityUtils;
@@ -49,6 +55,7 @@ import org.opensearch.common.xcontent.XContentType;
 import org.opensearch.index.query.ExistsQueryBuilder;
 import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.query.functionscore.ScriptScoreQueryBuilder;
+import org.opensearch.rest.RestRequest;
 import org.opensearch.rest.RestStatus;
 import org.opensearch.script.Script;
 
@@ -505,6 +512,22 @@ public class KNNRestTestCase extends ODFERestTestCase {
             .put("number_of_replicas", 0)
             .put("index.knn", true)
             .build();
+    }
+
+
+    protected Response executeGetModelRequest(String modelID) throws IOException {
+        String endpoint = String.join("/", KNNPlugin.KNN_BASE_URI, KNNConstants.MODELS, modelID);
+        Request request = new Request(RestRequest.Method.GET.name(), endpoint );
+        return client().performRequest(request);
+    }
+
+    protected Map<String, Object> parseGetModelResponse(Response response) throws IOException {
+        String responseBody = EntityUtils.toString(response.getEntity());
+        @SuppressWarnings("unchecked")
+        Map<String, Object> modelResponse =
+         (Map<String, Object>) createParser(XContentType.JSON.xContent(),
+            responseBody);
+        return modelResponse;
     }
 
     /**
