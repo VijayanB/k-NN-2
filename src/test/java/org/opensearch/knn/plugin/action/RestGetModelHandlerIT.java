@@ -14,11 +14,13 @@ package org.opensearch.knn.plugin.action;
 import org.apache.http.util.EntityUtils;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
+import org.opensearch.ResourceNotFoundException;
 import org.opensearch.action.ActionFuture;
 import org.opensearch.action.ActionListener;
 import org.opensearch.action.index.IndexResponse;
 import org.opensearch.client.Request;
 import org.opensearch.client.Response;
+import org.opensearch.client.ResponseException;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.common.xcontent.XContentType;
@@ -73,7 +75,7 @@ public class RestGetModelHandlerIT extends KNNRestTestCase {
 
 
 
-    public void testGetModel() throws IOException, InterruptedException, ExecutionException {
+    public void testGetModelExists() throws IOException {
         createModelSystemIndex();
         String testModelID = "test-model-id";
         byte[] testModelBlob = "hello".getBytes();
@@ -103,6 +105,15 @@ public class RestGetModelHandlerIT extends KNNRestTestCase {
         assertEquals(testModelMetadata.getSpaceType().getValue(), responseMap.get(METHOD_PARAMETER_SPACE_TYPE));
         assertEquals(testModelMetadata.getState().getName(), responseMap.get(MODEL_STATE));
         assertEquals(testModelMetadata.getTimestamp(), responseMap.get(MODEL_TIMESTAMP));
+    }
+    public void testGetModelFails() throws IOException {
+        createModelSystemIndex();
+        String restURI = String.join("/", KNNPlugin.KNN_BASE_URI, MODELS, "invalid-model-id");
+        Request request = new Request("GET", restURI);
+
+        ResponseException ex = expectThrows(ResponseException.class, () ->
+            client().performRequest(request));
+        assertTrue(ex.getMessage().contains("\"invalid-model-id\""));
     }
 
 }

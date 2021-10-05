@@ -15,6 +15,7 @@ import com.google.common.base.Charsets;
 import com.google.common.io.Resources;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.opensearch.ResourceNotFoundException;
 import org.opensearch.action.ActionListener;
 import org.opensearch.action.DocWriteRequest;
 import org.opensearch.action.admin.indices.create.CreateIndexRequest;
@@ -362,6 +363,11 @@ public interface ModelDao {
                 .setPreference("_local");
 
             getRequestBuilder.execute(ActionListener.wrap(response -> {
+                if(response.isSourceEmpty()){
+                    String errorMessage = String.format("Model \" %s \" does not exist", modelId);
+                    actionListener.onFailure(new ResourceNotFoundException(modelId,errorMessage));
+                    return;
+                }
                 final Map<String, Object> responseMap = response.getSourceAsMap();
                 Model model = new Model(getMetadataFromResponse(responseMap), getModelBlobFromResponse(responseMap));
                 actionListener.onResponse(new GetModelResponse(modelId, model));
