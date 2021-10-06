@@ -12,11 +12,16 @@
 package org.opensearch.knn.plugin.action;
 
 import org.apache.http.util.EntityUtils;
+import org.opensearch.ResourceNotFoundException;
 import org.opensearch.client.Request;
 import org.opensearch.client.Response;
 import org.opensearch.client.ResponseException;
+import org.opensearch.common.Strings;
+import org.opensearch.common.xcontent.XContentBuilder;
+import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.common.xcontent.XContentType;
 import org.opensearch.knn.KNNRestTestCase;
+import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.util.KNNEngine;
 import org.opensearch.knn.indices.ModelMetadata;
@@ -50,6 +55,21 @@ public class RestDeleteModelHandlerIT extends KNNRestTestCase {
     }
 
     public void testDeleteModelExists() throws IOException {
+
+        // Create an index
+        XContentBuilder builder = XContentFactory.jsonBuilder()
+            .startObject()
+            .startObject("properties")
+            .startObject("dsd")
+            .field("type", "knn_vector")
+            .field("dimension", 1)
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject();
+        String mapping = Strings.toString(builder);
+        createKnnIndex("indexName", mapping);
+        deleteKnnDoc("indexName", "sffsd");
         createModelSystemIndex();
         String testModelID = "test-model-id";
         byte[] testModelBlob = "hello".getBytes();
@@ -70,19 +90,10 @@ public class RestDeleteModelHandlerIT extends KNNRestTestCase {
 
     public void testDeleteModelFailsInvalid() throws IOException {
         createModelSystemIndex();
-        String restURI = String.join("/", KNNPlugin.KNN_BASE_URI, MODELS, "invalid-model-id");
+        String restURI = String.join("/", KNNPlugin.KNN_BASE_URI, MODELS, "invalid-model-id123");
         Request request = new Request("DELETE", restURI);
 
-        ResponseException ex = expectThrows(ResponseException.class, () ->
-            client().performRequest(request));
-        assertTrue(ex.getMessage().contains("\"invalid-model-id\""));
-    }
-
-    public void testDeleteModelFailsBlank() throws IOException {
-        createModelSystemIndex();
-        String restURI = String.join("/", KNNPlugin.KNN_BASE_URI, MODELS, " ");
-        Request request = new Request("DELETE", restURI);
-
-        expectThrows(IllegalArgumentException.class, () -> client().performRequest(request));
+        Response response = client().performRequest(request);
+        assertEquals("SDfdsfs", response.toString());
     }
 }

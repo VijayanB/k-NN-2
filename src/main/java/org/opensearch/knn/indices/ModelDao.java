@@ -37,6 +37,7 @@ import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.Nullable;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.xcontent.XContentType;
+import org.opensearch.index.IndexNotFoundException;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.util.KNNEngine;
@@ -415,9 +416,9 @@ public interface ModelDao {
 
         @Override
         public void delete(String modelId, ActionListener<DeleteResponse> listener) {
-            // If the index is not created, there is no need to delete the model
+            // If the index is not created, raise IndexNotFoundException
             if (!isCreated()) {
-                logger.info("Cannot delete model \"" + modelId + "\". Model index does not exist.");
+                listener.onFailure(new IndexNotFoundException(MODEL_INDEX_NAME));
                 return;
             }
 
@@ -431,18 +432,13 @@ public interface ModelDao {
             //TODO: Bug. Model needs to be removed from all nodes caches, not just local.
             // https://github.com/opensearch-project/k-NN/issues/93
             ActionListener<DeleteResponse> onModelDeleteListener = ActionListener.wrap(deleteResponse -> {
-                if(deleteResponse.getResult() != DocWriteResponse.Result.DELETED){
-                    String errorMessage = String.format("Model \" %s \" does not exist", modelId);
-                    listener.onFailure(new ResourceNotFoundException(modelId, errorMessage));
-                    return;
-                }
                 ModelCache.getInstance().remove(modelId);
                 listener.onResponse(deleteResponse);
             }, listener::onFailure);
 
             // On model metadata removal, delete the model from the index
             ActionListener<AcknowledgedResponse> onMetadataUpdateListener = ActionListener.wrap(acknowledgedResponse ->
-                            deleteRequestBuilder.execute(onModelDeleteListener), listener::onFailure);
+                            deleteRequestBuilder.execute(onModelDeleteListener), onModelDeleteListener::onFailure);
 
             // Remove the metadata asynchronously
             client.execute(

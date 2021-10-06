@@ -347,7 +347,6 @@ public class ModelDaoTests extends KNNSingleNodeTestCase {
 
         // We use put so that we can confirm cluster metadata gets added
         modelDao.put(modelId, model, docCreationListener);
-
         assertTrue(inProgressLatch1.await(100, TimeUnit.SECONDS));
     }
 
@@ -356,9 +355,6 @@ public class ModelDaoTests extends KNNSingleNodeTestCase {
         String modelId = "efbsdhcvbsd-2";
         byte[] modelBlob = "hello".getBytes();
         int dimension = 2;
-
-        // model index doesnt exist --> nothing should happen
-        modelDao.delete(modelId, null);
 
         // model id doesnt exist
         createIndex(MODEL_INDEX_NAME);
