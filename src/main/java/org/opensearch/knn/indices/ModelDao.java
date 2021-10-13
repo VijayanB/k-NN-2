@@ -30,6 +30,8 @@ import org.opensearch.action.get.GetRequestBuilder;
 import org.opensearch.action.get.GetResponse;
 import org.opensearch.action.index.IndexRequestBuilder;
 import org.opensearch.action.index.IndexResponse;
+import org.opensearch.action.search.SearchRequest;
+import org.opensearch.action.search.SearchResponse;
 import org.opensearch.action.support.WriteRequest;
 import org.opensearch.action.support.master.AcknowledgedResponse;
 import org.opensearch.client.Client;
@@ -128,6 +130,15 @@ public interface ModelDao {
      * @throws IOException   thrown on search
      */
     void get(String modelId, ActionListener<GetModelResponse> listener) throws IOException;
+
+    /**
+     * searches model from the system index.  Non-blocking.
+     *
+     * @param request to retrieve
+     * @param listener  handles get model response
+     * @throws IOException   thrown on search
+     */
+    void search(SearchRequest request, ActionListener<SearchResponse> listener) throws IOException;
 
     /**
      * Get metadata for a model. Non-blocking.
@@ -390,6 +401,17 @@ public interface ModelDao {
                 actionListener.onResponse(new GetModelResponse(model));
 
             }, actionListener::onFailure));
+        }
+
+        /**
+         * searches model from the system index.  Non-blocking.
+         *
+         * @param request  to retrieve
+         * @param listener handles get model response
+         */
+        @Override
+        public void search(SearchRequest request, ActionListener<SearchResponse> listener) {
+            client.search(request, listener);
         }
 
         @Override
