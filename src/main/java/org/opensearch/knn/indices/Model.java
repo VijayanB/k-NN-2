@@ -20,6 +20,8 @@ import org.opensearch.common.io.stream.StreamOutput;
 import org.opensearch.common.io.stream.Writeable;
 import org.opensearch.common.xcontent.ToXContent;
 import org.opensearch.common.xcontent.XContentBuilder;
+import org.opensearch.common.xcontent.XContentParser;
+import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.util.KNNEngine;
 
@@ -28,6 +30,7 @@ import java.util.Base64;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicReference;
 
+import static org.opensearch.common.xcontent.XContentParserUtils.ensureExpectedToken;
 import static org.opensearch.knn.common.KNNConstants.DIMENSION;
 import static org.opensearch.knn.common.KNNConstants.KNN_ENGINE;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_SPACE_TYPE;
@@ -201,5 +204,64 @@ public class Model implements Writeable, ToXContent {
         getModelMetadata().writeTo(output);
         writeOptionalModelBlob(output);
         output.writeOptionalString(modelID);
+    }
+
+    /**
+     * Parse raw json content into {@link Model} instance.
+     *
+     * @param parser json based content parser
+     * @return model instance
+     * @throws IOException IOException if content can't be parsed correctly.
+     */
+
+    public static Model parse(XContentParser parser) throws IOException {
+        ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.currentToken(), parser);
+        String engine = KNNEngine.DEFAULT.getName();
+        String spaceType = SpaceType.DEFAULT.getValue();
+        Integer dimension = null;
+        String modelState = "";
+        String description = "";
+        String timestamp = "";
+        String error = "";
+        String blobText = "";
+
+        while (parser.nextToken() != XContentParser.Token.END_OBJECT) {
+            String fieldName = parser.currentName();
+            parser.nextToken();
+            switch (fieldName) {
+                case KNNConstants.KNN_ENGINE:
+                    engine = parser.text();
+                    break;
+                case KNNConstants.METHOD_PARAMETER_SPACE_TYPE:
+                    spaceType = parser.text();
+                    break;
+                case KNNConstants.DIMENSION:
+                    dimension = parser.intValue();
+                    break;
+                case KNNConstants.MODEL_STATE:
+                    modelState = parser.text();
+                    break;
+                case KNNConstants.MODEL_TIMESTAMP:
+                    timestamp = parser.text();
+                    break;
+                case KNNConstants.MODEL_DESCRIPTION:
+                    description = parser.text();
+                    break;
+                case KNNConstants.MODEL_ERROR:
+                    error = parser.text();
+                    break;
+                case KNNConstants.MODEL_BLOB_PARAMETER:
+                    blobText = parser.text();
+                    break;
+            }
+        }
+        ModelMetadata modelMetadata = new ModelMetadata(KNNEngine.getEngine(engine),
+            SpaceType.getSpace(spaceType), dimension, ModelState.getModelState(modelState),
+            timestamp, description, error);
+        byte[] modelBlob = null;
+        if(blobText != null) {
+            modelBlob = Base64.getDecoder().decode(blobText);
+        }
+        return new Model(modelMetadata, modelBlob);
     }
 }
