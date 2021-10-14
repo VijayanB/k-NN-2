@@ -29,6 +29,7 @@ import org.opensearch.knn.index.util.KNNEngine;
 
 import java.io.IOException;
 import java.util.Base64;
+import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -256,6 +257,35 @@ public class Model implements Writeable, ToXContentObject {
                     blobText = parser.text();
                     break;
             }
+        }
+        ModelMetadata modelMetadata = new ModelMetadata(KNNEngine.getEngine(engine),
+            SpaceType.getSpace(spaceType), dimension, ModelState.getModelState(modelState),
+            timestamp, description, error);
+        byte[] modelBlob = null;
+        if(blobText != null) {
+            modelBlob = Base64.getDecoder().decode(blobText);
+        }
+        return new Model(modelMetadata, modelBlob, modelID);
+    }
+
+    private static String objectToString(Object value) {
+        if(value == null)
+            return null;
+        return (String)value;
+    }
+
+    public static Model parse(Map<String,Object> sourceMap, @NonNull String modelID) throws IOException {
+        String engine = objectToString(sourceMap.get(KNNConstants.KNN_ENGINE));
+        String spaceType = objectToString(sourceMap.get(METHOD_PARAMETER_SPACE_TYPE));
+        String modelState = objectToString(sourceMap.get(MODEL_STATE));;
+        String description = objectToString(sourceMap.get(MODEL_DESCRIPTION));;
+        String timestamp = objectToString(sourceMap.get(MODEL_TIMESTAMP));;
+        String error = objectToString(sourceMap.get(MODEL_ERROR));;
+        String blobText = objectToString(sourceMap.get(MODEL_BLOB_PARAMETER));;
+
+        Integer dimension = null;
+        if(sourceMap.containsKey(DIMENSION)) {
+            dimension = (Integer)sourceMap.get(DIMENSION);
         }
         ModelMetadata modelMetadata = new ModelMetadata(KNNEngine.getEngine(engine),
             SpaceType.getSpace(spaceType), dimension, ModelState.getModelState(modelState),

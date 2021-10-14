@@ -90,17 +90,8 @@ public class RestSearchModelHandler extends BaseRestHandler {
                 }
 
                 for (SearchHit hit : response.getHits()) {
-                    XContentParser parser = XContentType.JSON
-                        .xContent()
-                        .createParser(
-                            channel.request().getXContentRegistry(),
-                            LoggingDeprecationHandler.INSTANCE,
-                            hit.getSourceAsString()
-                        );
-                    ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser);
-
                     // write back id and version to anomaly detector object
-                    ToXContentObject xContentObject = Model.parse(parser, hit.getId());
+                    ToXContentObject xContentObject = Model.parse(hit.getSourceAsMap(), hit.getId());
                     XContentBuilder builder = xContentObject.toXContent(jsonBuilder(), EMPTY_PARAMS);
                     hit.sourceRef(BytesReference.bytes(builder));
                 }
