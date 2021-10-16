@@ -42,7 +42,10 @@ import org.opensearch.common.bytes.BytesReference;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.xcontent.ToXContentObject;
 import org.opensearch.common.xcontent.XContentBuilder;
+import org.opensearch.common.xcontent.XContentHelper;
+import org.opensearch.common.xcontent.XContentParser;
 import org.opensearch.common.xcontent.XContentType;
+import org.opensearch.common.xcontent.json.JsonXContent;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.plugin.transport.DeleteModelResponse;
 import org.opensearch.knn.plugin.transport.GetModelResponse;
@@ -52,6 +55,7 @@ import org.opensearch.knn.plugin.transport.RemoveModelFromCacheResponse;
 import org.opensearch.knn.plugin.transport.UpdateModelMetadataAction;
 import org.opensearch.knn.plugin.transport.UpdateModelMetadataRequest;
 import org.opensearch.rest.BytesRestResponse;
+import org.opensearch.rest.RestChannel;
 import org.opensearch.rest.RestResponse;
 import org.opensearch.rest.RestStatus;
 import org.opensearch.search.SearchHit;
@@ -399,8 +403,7 @@ public interface ModelDao {
                     XContentBuilder builder = xContentObject.toXContent(jsonBuilder(), EMPTY_PARAMS);
                     hit.sourceRef(BytesReference.bytes(builder));
                 }
-                actionListener.onResponse(response);
-
+                actionListener.onResponse(new SearchResponse(new BytesRestResponse(RestStatus.OK, response.toXContent(JsonXContent.contentBuilder(), EMPTY_PARAMS)).content().streamInput()));
             }, actionListener::onFailure));
         }
 
