@@ -125,13 +125,13 @@ tasks.named("integTest").configure {
     it.dependsOn(project.tasks.named("bundlePlugin"))
 }
 
-task release(type: Copy, group: 'build') {
-    dependsOn allprojects*.tasks.build
-    from(zipTree(project.tasks.bundlePlugin.outputs.files.getSingleFile()))
-    into "build/plugins/opensearch-knn"
-    includeEmptyDirs = false
-    eachFile { it.path = it.path - "opensearch/" }
-}
+//task release(type: Copy, group: 'build') {
+////    dependsOn allprojects*.tasks.build
+//    from(zipTree(project.tasks.bundlePlugin.outputs.files.getSingleFile()))
+//    into "build/plugins/opensearch-knn"
+//    includeEmptyDirs = false
+//    eachFile { it.path = it.path - "opensearch/" }
+//}
 
 
 //****************************************************************************/

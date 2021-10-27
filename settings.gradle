@@ -25,4 +25,8 @@
  */
 
 rootProject.name = 'opensearch-knn'
+List projects = [
+        'rest-api-spec',
+]
 
+include projects.toArray(new String[0])
