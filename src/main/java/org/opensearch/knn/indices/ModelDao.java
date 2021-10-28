@@ -395,7 +395,10 @@ public interface ModelDao {
             request.indices(MODEL_INDEX_NAME);
             client.search(request,ActionListener.wrap(response -> {
                 for (SearchHit hit : response.getHits()) {
-                    ToXContentObject xContentObject = Model.getModelFromSourceMap(hit.getSourceAsMap(), hit.getId());
+                    if(hit.getSourceAsMap() == null){
+                        continue;
+                    }
+                    ToXContentObject xContentObject = Model.getXContentFromSourceMap(hit.getSourceAsMap(), hit.getId());
                     XContentBuilder builder = xContentObject.toXContent(jsonBuilder(), EMPTY_PARAMS);
                     hit.sourceRef(BytesReference.bytes(builder));
                 }
