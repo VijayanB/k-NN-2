@@ -249,28 +249,4 @@ public class ModelMetadataTests extends KNNTestCase {
 
         expectThrows(IllegalArgumentException.class, () -> ModelMetadata.fromString("invalid"));
     }
-
-    public void testFromResponseMap() {
-        KNNEngine knnEngine = KNNEngine.DEFAULT;
-        SpaceType spaceType = SpaceType.L2;
-        int dimension = 128;
-        ModelState modelState = ModelState.TRAINING;
-        String timestamp = ZonedDateTime.now(ZoneOffset.UTC).toString();
-        String description = "test-description";
-        String error = "test-error";
-
-        ModelMetadata expected = new ModelMetadata(knnEngine, spaceType, dimension, modelState,
-            timestamp, description, error);
-        Map<String,Object> metadataAsMap = new HashMap<>();
-        metadataAsMap.put(KNNConstants.KNN_ENGINE, knnEngine.getName());
-        metadataAsMap.put(KNNConstants.METHOD_PARAMETER_SPACE_TYPE, spaceType.getValue());
-        metadataAsMap.put(KNNConstants.DIMENSION, dimension);
-        metadataAsMap.put(KNNConstants.MODEL_STATE, modelState.getName());
-        metadataAsMap.put(KNNConstants.MODEL_TIMESTAMP, timestamp);
-        metadataAsMap.put(KNNConstants.MODEL_DESCRIPTION, description);
-        metadataAsMap.put(KNNConstants.MODEL_ERROR, error);
-
-        ModelMetadata fromMap = ModelMetadata.getMetadataFromSourceMap(metadataAsMap);
-        assertEquals(expected, fromMap);
-    }
 }
