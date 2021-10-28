@@ -183,7 +183,7 @@ public class RestSearchModelHandlerIT extends KNNRestTestCase {
             Request request = new Request(method, restURI);
             request.setJsonEntity("{\n" +
                 "    \"_source\": {\n" +
-                "        \"includes\": [ \"model_id\", \"description\" ]\n"+
+                "        \"includes\": [ \"state\", \"description\" ]\n"+
                 "    }, " +
                 "    \"query\": {\n" +
                 "        \"match_all\": {}\n" +
@@ -206,9 +206,8 @@ public class RestSearchModelHandlerIT extends KNNRestTestCase {
                 assertTrue(testModelID.contains(hit.getId()));
                 Map<String, Object> sourceAsMap = hit.getSourceAsMap();
                 assertFalse(sourceAsMap.containsKey("model_blob"));
-                assertFalse(sourceAsMap.containsKey("state"));
+                assertTrue(sourceAsMap.containsKey("state"));
                 assertFalse(sourceAsMap.containsKey("timestamp"));
-                assertTrue(sourceAsMap.containsKey("model_id"));
                 assertTrue(sourceAsMap.containsKey("description"));
             }
         }
@@ -253,8 +252,7 @@ public class RestSearchModelHandlerIT extends KNNRestTestCase {
             for(SearchHit hit: searchResponse.getHits().getHits()){
                 assertTrue(testModelID.contains(hit.getId()));
                 Map<String, Object> sourceAsMap = hit.getSourceAsMap();
-                assertFalse(sourceAsMap.containsKey("model_blob"));
-                assertTrue(sourceAsMap.containsKey("model_id"));
+                assertTrue(sourceAsMap.containsKey("model_blob"));
                 assertTrue(sourceAsMap.containsKey("state"));
                 assertTrue(sourceAsMap.containsKey("timestamp"));
                 assertTrue(sourceAsMap.containsKey("description"));

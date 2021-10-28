@@ -209,45 +209,6 @@ public class Model implements Writeable, ToXContentObject {
         builder.field(fieldName, value);
     }
 
-    /**
-     * Parse source map content into {@link ToXContentObject} instance.
-     *
-     * @param sourceMap source contents
-     * @param modelID   model's identifier
-     * @return ToXContentObject instance
-     */
-    public static ToXContentObject getXContentFromSourceMap(Map<String, Object> sourceMap, @NonNull String modelID) {
-
-        Object engine = sourceMap.get(KNNConstants.KNN_ENGINE);
-        Object space = sourceMap.get(KNNConstants.METHOD_PARAMETER_SPACE_TYPE);
-        Object dimension = sourceMap.get(KNNConstants.DIMENSION);
-        Object state = sourceMap.get(KNNConstants.MODEL_STATE);
-        Object timestamp  = sourceMap.get(KNNConstants.MODEL_TIMESTAMP);
-        Object description = sourceMap.get(KNNConstants.MODEL_DESCRIPTION);
-        Object error = sourceMap.get(KNNConstants.MODEL_ERROR);
-        byte[] blob = getModelBlobFromResponse(sourceMap);
-
-        return (builder, params) -> {
-            XContentBuilder xContentBuilder = builder.startObject();
-            if (Strings.hasText(modelID)) {
-                builder.field(MODEL_ID, modelID);
-            }
-            createFieldIfNotNull(builder, MODEL_STATE, state);
-            createFieldIfNotNull(builder, MODEL_TIMESTAMP, timestamp);
-            createFieldIfNotNull(builder, MODEL_DESCRIPTION, description);
-            createFieldIfNotNull(builder, MODEL_ERROR, error);
-            if (blob != null) {
-                String base64Model = Base64.getEncoder().encodeToString(blob);
-                builder.field(MODEL_BLOB_PARAMETER, base64Model);
-            }
-            createFieldIfNotNull(builder, METHOD_PARAMETER_SPACE_TYPE, space);
-            createFieldIfNotNull(builder, DIMENSION, dimension);
-            createFieldIfNotNull(builder, KNN_ENGINE, engine);
-
-            return xContentBuilder.endObject();
-        };
-    }
-
     @Override
     public XContentBuilder toXContent(XContentBuilder builder, Params params) throws IOException {
         XContentBuilder xContentBuilder = builder.startObject();

@@ -393,18 +393,7 @@ public interface ModelDao {
         @Override
         public void search(SearchRequest request, ActionListener<SearchResponse> actionListener) {
             request.indices(MODEL_INDEX_NAME);
-            client.search(request,ActionListener.wrap(response -> {
-                for (SearchHit hit : response.getHits()) {
-                    if(hit.getSourceAsMap() == null){
-                        continue;
-                    }
-                    ToXContentObject xContentObject = Model.getXContentFromSourceMap(hit.getSourceAsMap(), hit.getId());
-                    XContentBuilder builder = xContentObject.toXContent(jsonBuilder(), EMPTY_PARAMS);
-                    hit.sourceRef(BytesReference.bytes(builder));
-                }
-                actionListener.onResponse(response);
-
-            }, actionListener::onFailure));
+            client.search(request,actionListener);
         }
 
         @Override
