@@ -66,7 +66,9 @@ repositories {
 
 apply plugin: 'opensearch.opensearchplugin'
 apply plugin: 'opensearch.rest-test'
-
+apply plugin: 'opensearch.yaml-rest-test'
+apply plugin: 'opensearch.validate-rest-spec'
+apply plugin: 'opensearch.rest-resources'
 
 checkstyle {
     toolVersion = '8.24'
