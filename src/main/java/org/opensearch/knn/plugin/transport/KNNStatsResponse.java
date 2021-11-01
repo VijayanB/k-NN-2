@@ -28,7 +28,9 @@ package org.opensearch.knn.plugin.transport;
 import org.opensearch.action.FailedNodeException;
 import org.opensearch.action.support.nodes.BaseNodesResponse;
 import org.opensearch.cluster.ClusterName;
+import org.opensearch.cluster.health.ClusterHealthStatus;
 import org.opensearch.cluster.node.DiscoveryNode;
+import org.opensearch.common.Nullable;
 import org.opensearch.common.io.stream.StreamInput;
 import org.opensearch.common.io.stream.StreamOutput;
 import org.opensearch.common.xcontent.ToXContentObject;
@@ -44,7 +46,10 @@ import java.util.Map;
 public class KNNStatsResponse extends BaseNodesResponse<KNNStatsNodeResponse> implements ToXContentObject {
 
     private static final String NODES_KEY = "nodes";
+    private static final String MODEL_KEY = "model";
+    private static final String INDEX_STATUS_KEY = "index_status";
     private Map<String, Object> clusterStats;
+    private ClusterHealthStatus modelIndexHealth;
 
     /**
      * Constructor
@@ -55,6 +60,9 @@ public class KNNStatsResponse extends BaseNodesResponse<KNNStatsNodeResponse> im
     public KNNStatsResponse(StreamInput in) throws IOException {
         super(new ClusterName(in), in.readList(KNNStatsNodeResponse::readStats), in.readList(FailedNodeException::new));
         clusterStats = in.readMap();
+        if(in.readOptionalBoolean()){
+            modelIndexHealth = ClusterHealthStatus.readFrom(in);
+        }
     }
 
     /**
@@ -64,17 +72,24 @@ public class KNNStatsResponse extends BaseNodesResponse<KNNStatsNodeResponse> im
      * @param nodes List of KNNStatsNodeResponses
      * @param failures List of failures from nodes
      * @param clusterStats Cluster level stats only obtained from a single node
+     * @param modelIndexHealth Model Index's cluster health status if index exists else null
      */
     public KNNStatsResponse(ClusterName clusterName, List<KNNStatsNodeResponse> nodes, List<FailedNodeException> failures,
-                     Map<String, Object> clusterStats) {
+                     Map<String, Object> clusterStats, @Nullable ClusterHealthStatus modelIndexHealth) {
         super(clusterName, nodes, failures);
         this.clusterStats = clusterStats;
+        this.modelIndexHealth = modelIndexHealth;
     }
 
     @Override
     public void writeTo(StreamOutput out) throws IOException {
         super.writeTo(out);
         out.writeMap(clusterStats);
+        if(modelIndexHealth == null){
+            out.writeBoolean(false);
+        }
+        out.writeBoolean(true);
+        modelIndexHealth.writeTo(out);
     }
 
     @Override
@@ -92,6 +107,13 @@ public class KNNStatsResponse extends BaseNodesResponse<KNNStatsNodeResponse> im
         // Return cluster level stats
         for (Map.Entry<String, Object> clusterStat : clusterStats.entrySet()) {
             builder.field(clusterStat.getKey(), clusterStat.getValue());
+        }
+
+        // Add model only if model index is created
+        if(modelIndexHealth != null){
+            builder.startObject(MODEL_KEY);
+            builder.field(INDEX_STATUS_KEY, modelIndexHealth.name().toLowerCase());
+            builder.endObject();
         }
 
         // Return node level stats

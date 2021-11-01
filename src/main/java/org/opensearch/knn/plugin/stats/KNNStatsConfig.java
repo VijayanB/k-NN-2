@@ -31,6 +31,7 @@ import org.opensearch.knn.plugin.stats.suppliers.KNNCounterSupplier;
 import org.opensearch.knn.plugin.stats.suppliers.KNNInnerCacheStatsSupplier;
 import com.google.common.cache.CacheStats;
 import com.google.common.collect.ImmutableMap;
+import org.opensearch.knn.plugin.stats.suppliers.ModelIndexStatusSupplier;
 import org.opensearch.knn.plugin.stats.suppliers.NativeMemoryCacheManagerSupplier;
 
 import java.util.Map;

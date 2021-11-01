@@ -11,9 +11,12 @@
 
 package org.opensearch.knn.plugin.stats.suppliers;
 
+import org.checkerframework.checker.nullness.qual.NonNull;
 import org.opensearch.cluster.health.ClusterHealthStatus;
+import org.opensearch.index.IndexNotFoundException;
 import org.opensearch.knn.indices.ModelDao;
 
+import java.util.Objects;
 import java.util.function.Supplier;
 
 public class ModelIndexStatusSupplier implements Supplier<ClusterHealthStatus> {
@@ -29,12 +32,16 @@ public class ModelIndexStatusSupplier implements Supplier<ClusterHealthStatus> {
      *
      * @param modelDao {@link ModelDao} instance to get health status
      */
-    public ModelIndexStatusSupplier(ModelDao modelDao) {
-        this.modelDao = modelDao;
+    public ModelIndexStatusSupplier(@NonNull ModelDao modelDao) {
+        this.modelDao = Objects.requireNonNull(modelDao);
     }
 
     @Override
     public ClusterHealthStatus get() {
-        return modelDao.getHealthStatus();
+        try {
+            return modelDao.getHealthStatus();
+        }catch (IndexNotFoundException e){
+            return null;
+        }
     }
 }

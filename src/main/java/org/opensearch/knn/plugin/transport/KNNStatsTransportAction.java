@@ -25,6 +25,8 @@
 
 package org.opensearch.knn.plugin.transport;
 
+import org.opensearch.cluster.health.ClusterHealthStatus;
+import org.opensearch.knn.indices.ModelDao;
 import org.opensearch.knn.plugin.stats.KNNStats;
 
 import org.opensearch.action.FailedNodeException;
@@ -48,6 +50,8 @@ import java.util.Set;
 public class KNNStatsTransportAction extends TransportNodesAction<KNNStatsRequest, KNNStatsResponse,
         KNNStatsNodeRequest, KNNStatsNodeResponse> {
 
+    private final ModelDao.OpenSearchKNNModelDao modelDAO;
+    private ClusterHealthStatus modelIndexHealthStatus;
     private KNNStats knnStats;
 
     /**
@@ -70,6 +74,7 @@ public class KNNStatsTransportAction extends TransportNodesAction<KNNStatsReques
         super(KNNStatsAction.NAME, threadPool, clusterService, transportService, actionFilters, KNNStatsRequest::new,
                 KNNStatsNodeRequest::new, ThreadPool.Names.MANAGEMENT, KNNStatsNodeResponse.class);
         this.knnStats = knnStats;
+        this.modelDAO = ModelDao.OpenSearchKNNModelDao.getInstance();
     }
 
     @Override
@@ -84,12 +89,16 @@ public class KNNStatsTransportAction extends TransportNodesAction<KNNStatsReques
                 clusterStats.put(statName, knnStats.getStats().get(statName).getValue());
             }
         }
+        if(this.modelDAO.isCreated()){
+            modelIndexHealthStatus = this.modelDAO.getHealthStatus();
+        }
 
         return new KNNStatsResponse(
                 clusterService.getClusterName(),
                 responses,
                 failures,
-                clusterStats
+                clusterStats,
+                modelIndexHealthStatus
         );
     }
 
