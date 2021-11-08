@@ -22,6 +22,7 @@ import org.opensearch.knn.index.KNNQueryResult;
 import org.opensearch.knn.index.MethodComponentContext;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.util.KNNEngine;
+import org.opensearch.knn.index.util.KNNLibraryTests;
 
 import java.io.IOException;
 import java.net.URL;
@@ -583,5 +584,34 @@ public class JNIServiceTests extends KNNTestCase {
         long pointer = JNIService.loadIndex(tmpFile1.toAbsolutePath().toString(), Collections.emptyMap(),
                 FAISS_NAME);
         assertNotEquals(0, pointer);
+    }
+
+    public void testNativeMemoryLoaded() throws IllegalAccessException, IOException {
+
+        Object list = ClassScope.getLoadedLibraries(KNNLibraryTests.class.getClassLoader());
+        //assertArrayEquals(new String[]{},list);
+        Path tmpFile = createTempFile();
+
+        JNIService.createIndex(testData.indexData.docs, testData.indexData.vectors,
+            tmpFile.toAbsolutePath().toString(), ImmutableMap.of(KNNConstants.SPACE_TYPE, SpaceType.L2.getValue()),
+            KNNEngine.NMSLIB.getName());
+        list = ClassScope.getLoadedLibraries(KNNLibraryTests.class.getClassLoader());
+        assertEquals("SFdsf", list.toString());
+
+    }
+    static class ClassScope {
+        private static java.lang.reflect.Field LIBRARIES;
+        static {
+            try {
+                LIBRARIES = ClassLoader.class.getDeclaredField("loadedLibraryNames");
+                LIBRARIES.setAccessible(true);
+            } catch (NoSuchFieldException e) {
+                e.printStackTrace();
+            }
+
+        }
+        public static Object getLoadedLibraries(final ClassLoader loader) throws IllegalAccessException {
+            return LIBRARIES.get(loader);
+        }
     }
 }
