@@ -10,10 +10,13 @@ import org.opensearch.painless.spi.Whitelist;
 import org.opensearch.painless.spi.WhitelistLoader;
 import org.opensearch.script.ScoreScript;
 import org.opensearch.script.ScriptContext;
+import org.opensearch.script.ScriptedMetricAggContexts;
 
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+
+import static java.util.Collections.singletonList;
+import static java.util.Map.entry;
 
 public class KNNWhitelistExtension implements PainlessExtension {
 
@@ -21,6 +24,13 @@ public class KNNWhitelistExtension implements PainlessExtension {
 
     @Override
     public Map<ScriptContext<?>, List<Whitelist>> getContextWhitelists() {
-        return Collections.singletonMap(ScoreScript.CONTEXT, Collections.singletonList(WHITELIST));
+        List<Whitelist> whitelist = singletonList(WHITELIST);
+        return Map.ofEntries(
+            entry(ScoreScript.CONTEXT, whitelist),
+            entry(ScriptedMetricAggContexts.InitScript.CONTEXT, whitelist),
+            entry(ScriptedMetricAggContexts.MapScript.CONTEXT, whitelist),
+            entry(ScriptedMetricAggContexts.CombineScript.CONTEXT, whitelist),
+            entry(ScriptedMetricAggContexts.ReduceScript.CONTEXT, whitelist)
+        );
     }
 }
