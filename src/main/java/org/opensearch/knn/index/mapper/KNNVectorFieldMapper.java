@@ -11,6 +11,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Supplier;
 import lombok.Getter;
@@ -20,6 +21,7 @@ import org.apache.lucene.index.DocValuesType;
 import org.apache.lucene.index.IndexOptions;
 import org.apache.lucene.search.DocValuesFieldExistsQuery;
 import org.apache.lucene.search.Query;
+import org.apache.lucene.util.BytesRef;
 import org.opensearch.Version;
 import org.opensearch.common.Explicit;
 import org.opensearch.common.Nullable;
@@ -40,6 +42,7 @@ import org.opensearch.index.mapper.ValueFetcher;
 import org.opensearch.index.query.QueryShardContext;
 import org.opensearch.index.query.QueryShardException;
 import org.opensearch.knn.common.KNNConstants;
+import org.opensearch.knn.index.KnnCircuitBreakerException;
 import org.opensearch.knn.index.KNNMethodContext;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.KNNVectorIndexFieldData;
@@ -51,16 +54,6 @@ import org.opensearch.knn.index.util.KNNEngine;
 import org.opensearch.knn.indices.ModelDao;
 import org.opensearch.search.aggregations.support.CoreValuesSourceType;
 import org.opensearch.search.lookup.SearchLookup;
-
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Optional;
-import java.util.function.Supplier;
 
 import static org.opensearch.knn.common.KNNConstants.DEFAULT_VECTOR_DATA_TYPE_FIELD;
 import static org.opensearch.knn.common.KNNConstants.ENCODER_SQ;
@@ -74,19 +67,17 @@ import static org.opensearch.knn.common.KNNValidationUtil.validateByteVectorValu
 import static org.opensearch.knn.common.KNNValidationUtil.validateFloatVectorValue;
 import static org.opensearch.knn.common.KNNValidationUtil.validateVectorDimension;
 import static org.opensearch.knn.index.KNNSettings.KNN_INDEX;
-import static org.opensearch.knn.index.mapper.KNNVectorFieldMapperUtil.addStoredFieldForVectorField;
+import static org.opensearch.knn.index.mapper.KNNVectorFieldMapperUtil.createStoredFieldForByteVector;
+import static org.opensearch.knn.index.mapper.KNNVectorFieldMapperUtil.createStoredFieldForFloatVector;
 import static org.opensearch.knn.index.mapper.KNNVectorFieldMapperUtil.clipVectorValueToFP16Range;
+import static org.opensearch.knn.index.mapper.KNNVectorFieldMapperUtil.deserializeStoredVector;
 import static org.opensearch.knn.index.mapper.KNNVectorFieldMapperUtil.validateFP16VectorValue;
 import static org.opensearch.knn.index.mapper.KNNVectorFieldMapperUtil.validateVectorDataTypeWithEngine;
 import static org.opensearch.knn.index.mapper.KNNVectorFieldMapperUtil.validateVectorDataTypeWithKnnIndexSetting;
 
 /**
- * Field Mapper for KNN vector type.
- *
- * Extends ParametrizedFieldMapper in order to easily configure mapping parameters.
- *
- * Implementations of this class define what needs to be stored in Lucene's fieldType. This allows us to have
- * alternative mappings for the same field type.
+ * Field Mapper for KNN vector type. Implementations of this class define what needs to be stored in Lucene's fieldType.
+ * This allows us to have alternative mappings for the same field type.
  */
 @Log4j2
 public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
@@ -109,8 +100,8 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
     public static class Builder extends ParametrizedFieldMapper.Builder {
         protected Boolean ignoreMalformed;
 
-        protected final Parameter<Boolean> stored = Parameter.boolParam("store", false, m -> toType(m).stored, false);
-        protected final Parameter<Boolean> hasDocValues = Parameter.boolParam("doc_values", false, m -> toType(m).hasDocValues, true);
+        protected final Parameter<Boolean> stored = Parameter.storeParam(m -> toType(m).stored, false);
+        protected final Parameter<Boolean> hasDocValues = Parameter.docValuesParam(m -> toType(m).hasDocValues, true);
         protected final Parameter<Integer> dimension = new Parameter<>(KNNConstants.DIMENSION, false, () -> -1, (n, c, o) -> {
             if (o == null) {
                 throw new IllegalArgumentException("Dimension cannot be null");
@@ -483,6 +474,11 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
             failIfNoDocValues();
             return new KNNVectorIndexFieldData.Builder(name(), CoreValuesSourceType.BYTES, this.vectorDataType);
         }
+
+        @Override
+        public Object valueForDisplay(Object value) {
+            return deserializeStoredVector((BytesRef) value, vectorDataType);
+        }
     }
 
     protected Explicit<Boolean> ignoreMalformed;
@@ -561,7 +557,9 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
             VectorField point = new VectorField(name(), array, fieldType);
 
             context.doc().add(point);
-            addStoredFieldForVectorField(context, fieldType, name(), point);
+            if (this.stored) {
+                context.doc().add(createStoredFieldForByteVector(name(), array));
+            }
         } else if (VectorDataType.FLOAT == vectorDataType) {
             Optional<float[]> floatsArrayOptional = getFloatsFromContext(context, dimension, methodComponentContext);
 
@@ -572,7 +570,9 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
             spaceType.validateVector(array);
             VectorField point = new VectorField(name(), array, fieldType);
             context.doc().add(point);
-            addStoredFieldForVectorField(context, fieldType, name(), point);
+            if (this.stored) {
+                context.doc().add(createStoredFieldForFloatVector(name(), array));
+            }
         } else {
             throw new IllegalArgumentException(
                 String.format(Locale.ROOT, "Cannot parse context for unsupported values provided for field [%s]", VECTOR_DATA_TYPE_FIELD)
@@ -625,8 +625,8 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
 
     void validateIfCircuitBreakerIsNotTriggered() {
         if (KNNSettings.isCircuitBreakerTriggered()) {
-            throw new IllegalStateException(
-                "Indexing knn vector fields is rejected as circuit breaker triggered. Check _opendistro/_knn/stats for detailed state"
+            throw new KnnCircuitBreakerException(
+                "Parsing the created knn vector fields prior to indexing has failed as the circuit breaker triggered.  This indicates that the cluster is low on memory resources and cannot index more documents at the moment. Check _plugins/_knn/stats for the circuit breaker status."
             );
         }
     }
@@ -733,11 +733,6 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
             array[i++] = f;
         }
         return Optional.of(array);
-    }
-
-    @Override
-    protected boolean docValuesByDefault() {
-        return true;
     }
 
     @Override

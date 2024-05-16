@@ -12,18 +12,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 ### Maintenance
 ### Refactoring
 
-## [Unreleased 2.x](https://github.com/opensearch-project/k-NN/compare/2.13...2.x)
+## [Unreleased 2.x](https://github.com/opensearch-project/k-NN/compare/2.14...2.x)
 ### Features
-* Support radial search in k-NN plugin [#1617](https://github.com/opensearch-project/k-NN/pull/1617)
 ### Enhancements
-* Make the HitQueue size more appropriate for exact search [#1549](https://github.com/opensearch-project/k-NN/pull/1549)
-* Support script score when doc value is disabled [#1573](https://github.com/opensearch-project/k-NN/pull/1573)
-* Implemented the Streaming Feature to stream vectors from Java to JNI layer to enable creation of larger segments for vector indices [#1604](https://github.com/opensearch-project/k-NN/pull/1604)
-* Remove unnecessary toString conversion of vector field and added some minor optimization in KNNCodec [1613](https://github.com/opensearch-project/k-NN/pull/1613)
+* Add KnnCircuitBreakerException and modify exception message [#1688](https://github.com/opensearch-project/k-NN/pull/1688)
+* Add stats for radial search [#1684](https://github.com/opensearch-project/k-NN/pull/1684)
 ### Bug Fixes
+* Block commas in model description [#1692](https://github.com/opensearch-project/k-NN/pull/1692)
 ### Infrastructure
-* Add micro-benchmark module in k-NN plugin for benchmark streaming vectors to JNI layer functionality. [#1583](https://github.com/opensearch-project/k-NN/pull/1583)
-* Add arm64 check when SIMD is disabled [#1618](https://github.com/opensearch-project/k-NN/pull/1618)
 ### Documentation
 ### Maintenance
 ### Refactoring

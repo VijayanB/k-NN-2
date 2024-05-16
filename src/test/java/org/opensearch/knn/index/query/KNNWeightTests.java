@@ -45,6 +45,7 @@ import org.opensearch.knn.index.memory.NativeMemoryCacheManager;
 import org.opensearch.knn.index.util.KNNEngine;
 import org.opensearch.knn.indices.ModelDao;
 import org.opensearch.knn.indices.ModelMetadata;
+import org.opensearch.knn.indices.ModelState;
 import org.opensearch.knn.jni.JNIService;
 
 import java.io.IOException;
@@ -167,6 +168,7 @@ public class KNNWeightTests extends KNNTestCase {
         ModelMetadata modelMetadata = mock(ModelMetadata.class);
         when(modelMetadata.getKnnEngine()).thenReturn(KNNEngine.FAISS);
         when(modelMetadata.getSpaceType()).thenReturn(spaceType);
+        when(modelMetadata.getState()).thenReturn(ModelState.CREATED);
         when(modelDao.getMetadata(eq("modelId"))).thenReturn(modelMetadata);
 
         KNNWeight.initialize(modelDao);
@@ -254,7 +256,7 @@ public class KNNWeightTests extends KNNTestCase {
         when(fieldInfo.getAttribute(eq(MODEL_ID))).thenReturn(modelId);
 
         RuntimeException ex = expectThrows(RuntimeException.class, () -> knnWeight.scorer(leafReaderContext));
-        assertEquals(String.format("Model \"%s\" does not exist.", modelId), ex.getMessage());
+        assertEquals(String.format("Model \"%s\" is not created.", modelId), ex.getMessage());
     }
 
     @SneakyThrows
@@ -697,8 +699,9 @@ public class KNNWeightTests extends KNNTestCase {
         final float[] queryVector = new float[] { 0.1f, 0.3f };
         final float radius = 0.5f;
         final int maxResults = 1000;
-        jniServiceMockedStatic.when(() -> JNIService.radiusQueryIndex(anyLong(), any(), anyFloat(), any(), anyInt()))
-            .thenReturn(getKNNQueryResults());
+        jniServiceMockedStatic.when(
+            () -> JNIService.radiusQueryIndex(anyLong(), any(), anyFloat(), any(), anyInt(), any(), anyInt(), any())
+        ).thenReturn(getKNNQueryResults());
         KNNQuery.Context context = mock(KNNQuery.Context.class);
         when(context.getMaxResultWindow()).thenReturn(maxResults);
 
@@ -740,7 +743,9 @@ public class KNNWeightTests extends KNNTestCase {
 
         final KNNScorer knnScorer = (KNNScorer) knnWeight.scorer(leafReaderContext);
         assertNotNull(knnScorer);
-        jniServiceMockedStatic.verify(() -> JNIService.radiusQueryIndex(anyLong(), any(), anyFloat(), any(), anyInt()));
+        jniServiceMockedStatic.verify(
+            () -> JNIService.radiusQueryIndex(anyLong(), any(), anyFloat(), any(), anyInt(), any(), anyInt(), any())
+        );
 
         final DocIdSetIterator docIdSetIterator = knnScorer.iterator();
 

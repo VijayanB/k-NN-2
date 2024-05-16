@@ -13,15 +13,19 @@ package org.opensearch.knn.index.mapper;
 
 import lombok.AccessLevel;
 import lombok.NoArgsConstructor;
-import org.apache.lucene.document.Field;
 import org.apache.lucene.document.FieldType;
 import org.apache.lucene.document.StoredField;
 import org.apache.lucene.index.DocValuesType;
+import org.apache.lucene.util.BytesRef;
 import org.opensearch.index.mapper.ParametrizedFieldMapper;
-import org.opensearch.index.mapper.ParseContext;
 import org.opensearch.knn.index.VectorDataType;
+import org.opensearch.knn.index.codec.util.KNNVectorSerializerFactory;
 import org.opensearch.knn.index.util.KNNEngine;
+import org.opensearch.knn.indices.ModelDao;
+import org.opensearch.knn.indices.ModelMetadata;
+import org.opensearch.knn.indices.ModelUtil;
 
+import java.util.Arrays;
 import java.util.Locale;
 
 import static org.opensearch.knn.common.KNNConstants.ENCODER_SQ;
@@ -33,8 +37,21 @@ import static org.opensearch.knn.common.KNNConstants.LUCENE_NAME;
 import static org.opensearch.knn.common.KNNConstants.VECTOR_DATA_TYPE_FIELD;
 import static org.opensearch.knn.common.KNNValidationUtil.validateFloatVectorValue;
 
+/**
+ * Utility class for KNNVectorFieldMapper
+ */
 @NoArgsConstructor(access = AccessLevel.PRIVATE)
 public class KNNVectorFieldMapperUtil {
+
+    private static ModelDao modelDao;
+
+    /**
+     * Initializes static instance variables
+     * @param modelDao ModelDao object
+     */
+    public static void initialize(final ModelDao modelDao) {
+        KNNVectorFieldMapperUtil.modelDao = modelDao;
+    }
 
     /**
      * Validate the float vector value and throw exception if it is not a number or not in the finite range
@@ -44,7 +61,6 @@ public class KNNVectorFieldMapperUtil {
      */
     public static void validateFP16VectorValue(float value) {
         validateFloatVectorValue(value);
-
         if (value < FP16_MIN_VALUE || value > FP16_MAX_VALUE) {
             throw new IllegalArgumentException(
                 String.format(
@@ -136,9 +152,81 @@ public class KNNVectorFieldMapperUtil {
         return field;
     }
 
-    public static void addStoredFieldForVectorField(ParseContext context, FieldType fieldType, String mapperName, Field vectorField) {
-        if (fieldType.stored()) {
-            context.doc().add(new StoredField(mapperName, vectorField.toString()));
+    /**
+     * Creates a stored field for a byte vector
+     *
+     * @param name field name
+     * @param vector vector to be added to stored field
+     */
+    public static StoredField createStoredFieldForByteVector(String name, byte[] vector) {
+        return new StoredField(name, vector);
+    }
+
+    /**
+     * Creates a stored field for a float vector
+     *
+     * @param name field name
+     * @param vector vector to be added to stored field
+     */
+    public static StoredField createStoredFieldForFloatVector(String name, float[] vector) {
+        return new StoredField(name, KNNVectorSerializerFactory.getDefaultSerializer().floatToByteArray(vector));
+    }
+
+    /**
+     * @param storedVector Vector representation in bytes
+     * @param vectorDataType type of vector
+     * @return either int[] or float[] of corresponding vector
+     */
+    public static Object deserializeStoredVector(BytesRef storedVector, VectorDataType vectorDataType) {
+        if (VectorDataType.BYTE == vectorDataType) {
+            byte[] bytes = storedVector.bytes;
+            int[] byteAsIntArray = new int[bytes.length];
+            Arrays.setAll(byteAsIntArray, i -> bytes[i]);
+            return byteAsIntArray;
         }
+
+        return vectorDataType.getVectorFromBytesRef(storedVector);
+    }
+
+    /**
+     * Get the expected dimensions from a specified knn vector field type.
+     *
+     * If the field is model-based, get dimensions from model metadata.
+     * @param knnVectorFieldType knn vector field type
+     * @return expected dimensions
+     */
+    public static int getExpectedDimensions(final KNNVectorFieldMapper.KNNVectorFieldType knnVectorFieldType) {
+        int expectedDimensions = knnVectorFieldType.getDimension();
+        if (isModelBasedIndex(expectedDimensions)) {
+            ModelMetadata modelMetadata = getModelMetadataForField(knnVectorFieldType);
+            expectedDimensions = modelMetadata.getDimension();
+        }
+        return expectedDimensions;
+    }
+
+    private static boolean isModelBasedIndex(int expectedDimensions) {
+        return expectedDimensions == -1;
+    }
+
+    /**
+     * Returns the model metadata for a specified knn vector field
+     *
+     * @param knnVectorField knn vector field
+     * @return the model metadata from knnVectorField
+     */
+    private static ModelMetadata getModelMetadataForField(final KNNVectorFieldMapper.KNNVectorFieldType knnVectorField) {
+        String modelId = knnVectorField.getModelId();
+
+        if (modelId == null) {
+            throw new IllegalArgumentException(
+                String.format("Field '%s' does not have model.", knnVectorField.getKnnMethodContext().getMethodComponentContext().getName())
+            );
+        }
+
+        ModelMetadata modelMetadata = modelDao.getMetadata(modelId);
+        if (!ModelUtil.isModelCreated(modelMetadata)) {
+            throw new IllegalArgumentException(String.format("Model ID '%s' is not created.", modelId));
+        }
+        return modelMetadata;
     }
 }
