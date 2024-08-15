@@ -80,6 +80,13 @@ public class KNNSettings {
     public static final String MODEL_CACHE_SIZE_LIMIT = "knn.model.cache.size.limit";
     public static final String ADVANCED_FILTERED_EXACT_SEARCH_THRESHOLD = "index.knn.advanced.filtered_exact_search_threshold";
     public static final String KNN_FAISS_AVX2_DISABLED = "knn.faiss.avx2.disabled";
+    public static final String KNN_SKIP_BUILDING_GRAPH = "knn.skip_building_graph";
+    /**
+     * TODO: This setting is only added to ensure that main branch of k_NN plugin doesn't break till other parts of the
+     * code is getting ready. Will remove this setting once all changes related to integration of KNNVectorsFormat is added
+     * for native engines.
+     */
+    public static final String KNN_USE_LUCENE_VECTOR_FORMAT_ENABLED = "knn.use.format.enabled";
 
     /**
      * Default setting values
@@ -254,6 +261,24 @@ public class KNNSettings {
     );
 
     /**
+     * TODO: This setting is only added to ensure that main branch of k_NN plugin doesn't break till other parts of the
+     * code is getting ready. Will remove this setting once all changes related to integration of KNNVectorsFormat is added
+     * for native engines.
+     */
+    public static final Setting<Boolean> KNN_USE_LUCENE_VECTOR_FORMAT_ENABLED_SETTING = Setting.boolSetting(
+        KNN_USE_LUCENE_VECTOR_FORMAT_ENABLED,
+        false,
+        NodeScope
+    );
+
+    public static final Setting<Boolean> KNN_SKIP_BUILDING_GRAPH_SETTING = Setting.boolSetting(
+        KNN_SKIP_BUILDING_GRAPH,
+        false,
+        NodeScope,
+        Dynamic
+    );
+
+    /**
      * Dynamic settings
      */
     public static Map<String, Setting<?>> dynamicCacheSettings = new HashMap<String, Setting<?>>() {
@@ -370,6 +395,14 @@ public class KNNSettings {
             return KNN_VECTOR_STREAMING_MEMORY_LIMIT_PCT_SETTING;
         }
 
+        if (KNN_USE_LUCENE_VECTOR_FORMAT_ENABLED.equals(key)) {
+            return KNN_USE_LUCENE_VECTOR_FORMAT_ENABLED_SETTING;
+        }
+
+        if (KNN_SKIP_BUILDING_GRAPH.equals(key)) {
+            return KNN_SKIP_BUILDING_GRAPH_SETTING;
+        }
+
         throw new IllegalArgumentException("Cannot find setting by key [" + key + "]");
     }
 
@@ -388,7 +421,9 @@ public class KNNSettings {
             MODEL_CACHE_SIZE_LIMIT_SETTING,
             ADVANCED_FILTERED_EXACT_SEARCH_THRESHOLD_SETTING,
             KNN_FAISS_AVX2_DISABLED_SETTING,
-            KNN_VECTOR_STREAMING_MEMORY_LIMIT_PCT_SETTING
+            KNN_VECTOR_STREAMING_MEMORY_LIMIT_PCT_SETTING,
+            KNN_USE_LUCENE_VECTOR_FORMAT_ENABLED_SETTING,
+            KNN_SKIP_BUILDING_GRAPH_SETTING
         );
         return Stream.concat(settings.stream(), dynamicCacheSettings.values().stream()).collect(Collectors.toList());
     }
@@ -407,6 +442,10 @@ public class KNNSettings {
 
     public static double getCircuitBreakerUnsetPercentage() {
         return KNNSettings.state().getSettingValue(KNNSettings.KNN_CIRCUIT_BREAKER_UNSET_PERCENTAGE);
+    }
+
+    public static boolean shouldSkipBuildingGraph() {
+        return state().getSettingValue(KNN_SKIP_BUILDING_GRAPH);
     }
 
     public static boolean isFaissAVX2Disabled() {
