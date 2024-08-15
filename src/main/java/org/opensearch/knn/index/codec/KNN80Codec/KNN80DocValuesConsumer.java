@@ -104,8 +104,17 @@ class KNN80DocValuesConsumer extends DocValuesConsumer implements Closeable {
         return KNNEngine.getEngine(engineName);
     }
 
+    private boolean shouldSkipAddingKNNBinaryField() {
+        return KNNSettings.shouldSkipBuildingGraph();
+    }
+
     public void addKNNBinaryField(FieldInfo field, DocValuesProducer valuesProducer, boolean isMerge, boolean isRefresh)
         throws IOException {
+        if (shouldSkipAddingKNNBinaryField()) {
+            log.info("skipping graph");
+            return;
+        }
+        log.info("Will build graph");
         // Get values to be indexed
         BinaryDocValues values = valuesProducer.getBinary(field);
         KNNCodecUtil.Pair pair = KNNCodecUtil.getFloats(values);
