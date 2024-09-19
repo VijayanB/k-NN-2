@@ -329,6 +329,7 @@ public class KNNWeightTests extends KNNTestCase {
     @SneakyThrows
     public void testShardWithoutFiles() {
         final KNNQuery query = new KNNQuery(FIELD_NAME, QUERY_VECTOR, K, INDEX_NAME, (BitSetProducer) null);
+        KNNWeight.initialize(null);
         final KNNWeight knnWeight = new KNNWeight(query, 0.0f);
 
         final LeafReaderContext leafReaderContext = mock(LeafReaderContext.class);
@@ -362,7 +363,7 @@ public class KNNWeightTests extends KNNTestCase {
         final FieldInfo fieldInfo = mock(FieldInfo.class);
         when(reader.getFieldInfos()).thenReturn(fieldInfos);
         when(fieldInfos.fieldInfo(any())).thenReturn(fieldInfo);
-
+        when(fieldInfo.getAttribute(SPACE_TYPE)).thenReturn(SpaceType.DEFAULT.getValue());
         final Scorer knnScorer = knnWeight.scorer(leafReaderContext);
         assertEquals(KNNScorer.emptyScorer(knnWeight), knnScorer);
     }

@@ -145,21 +145,15 @@ public class KNNWeight extends Weight {
             .useQuantizedVectorsForSearch(true)
             .knnQuery(knnQuery)
             .build();
-        if (filterWeight != null && canDoExactSearch(cardinality)) {
+        if (filterWeight != null && isExactSearchPreferred(cardinality)) {
             docIdsToScoreMap = exactSearch(context, exactSearcherContext);
         } else {
             docIdsToScoreMap = doANNSearch(context, filterBitSet, cardinality, k);
             if (docIdsToScoreMap == null) {
                 return Collections.emptyMap();
             }
-            if (canDoExactSearchAfterANNSearch(cardinality, docIdsToScoreMap.size())) {
-                log.debug(
-                    "Doing ExactSearch after doing ANNSearch as the number of documents returned are less than "
-                        + "K, even when we have more than K filtered Ids. K: {}, ANNResults: {}, filteredIdCount: {}",
-                    k,
-                    docIdsToScoreMap.size(),
-                    cardinality
-                );
+            if (isANNResultHasInsufficientDocuments(cardinality, docIdsToScoreMap.size())) {
+                log.debug("Doing exact search after doing approximate search as the number of documents returned is not sufficient");
                 docIdsToScoreMap = exactSearch(context, exactSearcherContext);
             }
         }
@@ -273,8 +267,8 @@ public class KNNWeight extends Weight {
 
         List<String> engineFiles = KNNCodecUtil.getEngineFiles(knnEngine.getExtension(), knnQuery.getField(), reader.getSegmentInfo().info);
         if (engineFiles.isEmpty()) {
-            log.debug("[KNN] No engine index found for field {} for segment {}", knnQuery.getField(), reader.getSegmentName());
-            return null;
+            log.debug("[KNN] No native engine files found for field {} for segment {}", knnQuery.getField(), reader.getSegmentName());
+            return Collections.emptyMap();
         }
 
         Path indexPath = PathUtils.get(directory, engineFiles.get(0));
@@ -363,13 +357,6 @@ public class KNNWeight extends Weight {
             indexAllocation.readUnlock();
             indexAllocation.decRef();
         }
-
-        /*
-         * Scores represent the distance of the documents with respect to given query vector.
-         * Lesser the score, the closer the document is to the query vector.
-         * Since by default results are retrieved in the descending order of scores, to get the nearest
-         * neighbors we are inverting the scores.
-         */
         if (results.length == 0) {
             log.debug("[KNN] Query yielded 0 results");
             return null;
@@ -402,7 +389,7 @@ public class KNNWeight extends Weight {
         return -score + 1;
     }
 
-    private boolean canDoExactSearch(final int filterIdsCount) {
+    private boolean isExactSearchPreferred(final int filterIdsCount) {
         log.debug(
             "Info for doing exact search filterIdsLength : {}, Threshold value: {}",
             filterIdsCount,
@@ -442,13 +429,28 @@ public class KNNWeight extends Weight {
     }
 
     /**
-     * This condition mainly checks during filtered search we have more than K elements in filterIds but the ANN
-     * doesn't yeild K nearest neighbors.
+     * This condition mainly checks if annResult is empty due to no native engine files
+     * or during filtered search we have more than K elements in filterIds but the ANN
+     * doesn't yield K nearest neighbors.
      * @param filterIdsCount count of filtered Doc ids
-     * @param annResultCount Count of Nearest Neighbours we got after doing filtered ANN Search.
+     * @param annResultCount Count of Nearest Neighbours we got after doing ANN Search.
      * @return boolean - true if exactSearch needs to be done after ANNSearch.
      */
-    private boolean canDoExactSearchAfterANNSearch(final int filterIdsCount, final int annResultCount) {
-        return filterWeight != null && filterIdsCount >= knnQuery.getK() && knnQuery.getK() > annResultCount;
+    private boolean isANNResultHasInsufficientDocuments(final int filterIdsCount, final int annResultCount) {
+        // if no result is retrieved from ANN, we should do Exact Search
+        if (annResultCount == 0) {
+            log.debug("Approximate search result is empty. This is due to lack of native engine files.");
+            return true;
+        }
+        if (filterWeight != null && filterIdsCount >= knnQuery.getK() && knnQuery.getK() > annResultCount) {
+            log.debug(
+                "ANNSearch result is less than K, even when we have more than K filtered Ids. K: {}, ANNResults: {}, filteredIdCount: {}",
+                knnQuery.getK(),
+                annResultCount,
+                filterIdsCount
+            );
+            return true;
+        }
+        return false;
     }
 }
