@@ -96,6 +96,7 @@ import static org.opensearch.knn.index.KNNSettings.MODEL_CACHE_SIZE_LIMIT_SETTIN
  * Test used for testing Codecs
  */
 public class KNNCodecTestCase extends KNNTestCase {
+    public static final String FAISS_HNSW_EXTENSION = "faiss";
     private static final FieldType sampleFieldType;
     static {
         KNNMethodConfigContext knnMethodConfigContext = KNNMethodConfigContext.builder()
@@ -187,7 +188,7 @@ public class KNNCodecTestCase extends KNNTestCase {
         writer.close();
         ResourceWatcherService resourceWatcherService = createDisabledResourceWatcherService();
         NativeMemoryLoadStrategy.IndexLoadStrategy.initialize(resourceWatcherService);
-        List<String> hnswfiles = Arrays.stream(dir.listAll()).filter(x -> x.contains("hnsw")).collect(Collectors.toList());
+        List<String> hnswfiles = Arrays.stream(dir.listAll()).filter(x -> x.contains(FAISS_HNSW_EXTENSION)).collect(Collectors.toList());
 
         // there should be 2 hnsw index files created. one for test_vector and one for my_vector
         assertEquals(2, hnswfiles.size());

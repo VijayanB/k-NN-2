@@ -27,6 +27,7 @@ import static org.opensearch.knn.index.memory.NativeMemoryCacheManager.GRAPH_COU
 
 public class KNNIndexShardTests extends KNNSingleNodeTestCase {
 
+    public static final String FAISS_HNSW_EXTENSION = "faiss";
     private final String testIndexName = "test-index";
     private final String testFieldName = "test-field";
     private final int dimensions = 2;
@@ -114,7 +115,7 @@ public class KNNIndexShardTests extends KNNSingleNodeTestCase {
         engineFileContexts = knnIndexShard.getAllEngineFileContexts(searcher.getIndexReader());
         assertEquals(1, engineFileContexts.size());
         List<String> paths = engineFileContexts.stream().map(KNNIndexShard.EngineFileContext::getIndexPath).collect(Collectors.toList());
-        assertTrue(paths.get(0).contains("hnsw") || paths.get(0).contains("hnswc"));
+        assertTrue(paths.get(0).contains(FAISS_HNSW_EXTENSION));
         searcher.close();
     }
 
