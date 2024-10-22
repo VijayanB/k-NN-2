@@ -45,7 +45,9 @@ public class KNNCircuitBreakerIT extends KNNRestTestCase {
         String indexName2 = INDEX_NAME + "2";
 
         createKnnIndex(indexName1, settings, createKnnIndexMapping(FIELD_NAME, 2));
+        updateIndexSettingToCreateGraphAlways(indexName1);
         createKnnIndex(indexName2, settings, createKnnIndexMapping(FIELD_NAME, 2));
+        updateIndexSettingToCreateGraphAlways(indexName2);
 
         Float[] vector = { 1.3f, 2.2f };
         int docsInIndex = 7; // through testing, 7 is minimum number of docs to trip circuit breaker at 1kb

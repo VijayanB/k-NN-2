@@ -784,6 +784,10 @@ public class KNNRestTestCase extends ODFERestTestCase {
             .build();
     }
 
+    protected void updateIndexSettingToCreateGraphAlways(String indexName) throws IOException {
+        updateIndexSettings(indexName, Settings.builder().put(INDEX_KNN_ADVANCED_APPROXIMATE_THRESHOLD, 0));
+    }
+
     @SneakyThrows
     protected int getDataNodeCount() {
         Request request = new Request("GET", "_nodes/stats?filter_path=nodes.*.roles");
