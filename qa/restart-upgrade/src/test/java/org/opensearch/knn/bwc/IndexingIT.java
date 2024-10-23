@@ -6,9 +6,7 @@
 package org.opensearch.knn.bwc;
 
 import org.junit.Assert;
-import org.opensearch.common.settings.Settings;
 import org.opensearch.common.xcontent.XContentFactory;
-import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.engine.KNNEngine;
@@ -54,9 +52,8 @@ public class IndexingIT extends AbstractRestartUpgradeTestCase {
         if (isRunningAgainstOldCluster()) {
             createKnnIndex(testIndex, getKNNDefaultIndexSettings(), createKnnIndexMapping(TEST_FIELD, DIMENSIONS));
             addKNNDocs(testIndex, TEST_FIELD, DIMENSIONS, DOC_ID, NUM_DOCS);
+            flush(testIndex, true);
         } else {
-            // update index setting to allow build graph always since we test graph count that are loaded into memory
-            updateIndexSettings(testIndex, Settings.builder().put(KNNSettings.INDEX_KNN_ADVANCED_APPROXIMATE_THRESHOLD, 0));
             validateKNNIndexingOnUpgrade(NUM_DOCS);
         }
     }
@@ -280,14 +277,13 @@ public class IndexingIT extends AbstractRestartUpgradeTestCase {
 
     // KNN indexing tests when the cluster is upgraded to latest version
     public void validateKNNIndexingOnUpgrade(int numOfDocs) throws Exception {
-        updateIndexSettings(testIndex, Settings.builder().put(KNNSettings.INDEX_KNN_ADVANCED_APPROXIMATE_THRESHOLD, 0));
-        forceMergeKnnIndex(testIndex);
         QUERY_COUNT = numOfDocs;
         validateKNNSearch(testIndex, TEST_FIELD, DIMENSIONS, QUERY_COUNT, K);
         clearCache(List.of(testIndex));
         DOC_ID = numOfDocs;
         addKNNDocs(testIndex, TEST_FIELD, DIMENSIONS, DOC_ID, NUM_DOCS);
         QUERY_COUNT = QUERY_COUNT + NUM_DOCS;
+        validateKNNSearch(testIndex, TEST_FIELD, DIMENSIONS, QUERY_COUNT, K);
         forceMergeKnnIndex(testIndex);
         validateKNNSearch(testIndex, TEST_FIELD, DIMENSIONS, QUERY_COUNT, K);
         deleteKNNIndex(testIndex);
