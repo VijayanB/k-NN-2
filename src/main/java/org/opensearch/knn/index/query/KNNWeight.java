@@ -139,7 +139,7 @@ public class KNNWeight extends Weight {
          * . Hence, if filtered results are less than K and filter query is present we should shift to exact search.
          * This improves the recall.
          */
-        if (isFilteredExactSearchPreferred(cardinality)) {
+        if (isFilteredExactSearchPreferred(cardinality, k)) {
             return doExactSearch(context, filterBitSet, k);
         }
         Map<Integer, Float> docIdsToScoreMap = doANNSearch(context, filterBitSet, cardinality, k);
@@ -151,6 +151,18 @@ public class KNNWeight extends Weight {
             return doExactSearch(context, docs, k);
         }
         return docIdsToScoreMap;
+    }
+
+    public boolean isExactSearchPreferred(LeafReaderContext context, int k) throws IOException {
+        final BitSet filterBitSet = getFilteredDocsBitSet(context);
+        int cardinality = filterBitSet.cardinality();
+        if (isFilteredExactSearchPreferred(cardinality, k)) {
+            return true;
+        }
+        if (isMissingNativeEngineFiles(context)) {
+            return true;
+        }
+        return false;
     }
 
     private BitSet getFilteredDocsBitSet(final LeafReaderContext ctx) throws IOException {
@@ -398,7 +410,7 @@ public class KNNWeight extends Weight {
         return -score + 1;
     }
 
-    private boolean isFilteredExactSearchPreferred(final int filterIdsCount) {
+    private boolean isFilteredExactSearchPreferred(final int filterIdsCount, int k) {
         if (filterWeight == null) {
             return false;
         }
@@ -409,7 +421,7 @@ public class KNNWeight extends Weight {
         );
         int filterThresholdValue = KNNSettings.getFilteredExactSearchThreshold(knnQuery.getIndexName());
         // Refer this GitHub around more details https://github.com/opensearch-project/k-NN/issues/1049 on the logic
-        if (knnQuery.getRadius() == null && filterIdsCount <= knnQuery.getK()) {
+        if (knnQuery.getRadius() == null && filterIdsCount <= k) {
             return true;
         }
         // See user has defined Exact Search filtered threshold. if yes, then use that setting.
