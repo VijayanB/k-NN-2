@@ -96,12 +96,17 @@ jobs:
     strategy:
       matrix:
         java: [ 21 ]
+        os: [macos-12, macos-13]
 
     name: Build and Test k-NN Plugin on MacOS
     needs: Get-CI-Image-Tag
-    runs-on: macos-12
+    runs-on: ${{ matrix.os }}
 
     steps:
+      - name: Check package
+        run: |
+          brew info libomp
+
       - name: Checkout k-NN
         uses: actions/checkout@v1
 
