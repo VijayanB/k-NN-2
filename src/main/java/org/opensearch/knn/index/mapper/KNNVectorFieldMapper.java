@@ -681,6 +681,8 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
      */
     protected abstract PerDimensionProcessor getPerDimensionProcessor();
 
+    protected abstract VectorTransformer getVectorTransformer();
+
     protected void parseCreateField(ParseContext context, int dimension, VectorDataType vectorDataType) throws IOException {
         validatePreparse();
 

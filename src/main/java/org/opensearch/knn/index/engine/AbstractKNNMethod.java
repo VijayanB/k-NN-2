@@ -13,6 +13,8 @@ import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.mapper.PerDimensionProcessor;
 import org.opensearch.knn.index.mapper.PerDimensionValidator;
 import org.opensearch.knn.index.mapper.SpaceVectorValidator;
+import org.opensearch.knn.index.mapper.VectorTransformer;
+import org.opensearch.knn.index.mapper.VectorTransformerFactory;
 import org.opensearch.knn.index.mapper.VectorValidator;
 
 import java.util.ArrayList;
@@ -106,6 +108,10 @@ public abstract class AbstractKNNMethod implements KNNMethod {
         return PerDimensionProcessor.NOOP_PROCESSOR;
     }
 
+    protected VectorTransformer getVectorTransformer(KNNMethodContext knnMethodContext) {
+        return VectorTransformerFactory.getVectorTransformer(knnMethodContext);
+    }
+
     @Override
     public KNNLibraryIndexingContext getKNNLibraryIndexingContext(
         KNNMethodContext knnMethodContext,
@@ -124,6 +130,7 @@ public abstract class AbstractKNNMethod implements KNNMethod {
             .vectorValidator(doGetVectorValidator(knnMethodContext, knnMethodConfigContext))
             .perDimensionValidator(doGetPerDimensionValidator(knnMethodContext, knnMethodConfigContext))
             .perDimensionProcessor(doGetPerDimensionProcessor(knnMethodContext, knnMethodConfigContext))
+            .vectorTransformer(getVectorTransformer(knnMethodContext))
             .build();
     }
 

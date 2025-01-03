@@ -41,6 +41,7 @@ public class LuceneFieldMapper extends KNNVectorFieldMapper {
     private final PerDimensionProcessor perDimensionProcessor;
     private final PerDimensionValidator perDimensionValidator;
     private final VectorValidator vectorValidator;
+    private final VectorTransformer vectorTransformer;
 
     static LuceneFieldMapper createFieldMapper(
         String fullname,
@@ -116,6 +117,7 @@ public class LuceneFieldMapper extends KNNVectorFieldMapper {
         this.perDimensionProcessor = knnLibraryIndexingContext.getPerDimensionProcessor();
         this.perDimensionValidator = knnLibraryIndexingContext.getPerDimensionValidator();
         this.vectorValidator = knnLibraryIndexingContext.getVectorValidator();
+        this.vectorTransformer = knnLibraryIndexingContext.getVectorTransformer();
     }
 
     @Override
@@ -161,6 +163,11 @@ public class LuceneFieldMapper extends KNNVectorFieldMapper {
     @Override
     protected PerDimensionProcessor getPerDimensionProcessor() {
         return perDimensionProcessor;
+    }
+
+    @Override
+    protected VectorTransformer getVectorTransformer() {
+        return vectorTransformer;
     }
 
     @Override

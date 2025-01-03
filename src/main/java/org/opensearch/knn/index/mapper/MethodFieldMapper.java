@@ -38,6 +38,7 @@ public class MethodFieldMapper extends KNNVectorFieldMapper {
     private final PerDimensionProcessor perDimensionProcessor;
     private final PerDimensionValidator perDimensionValidator;
     private final VectorValidator vectorValidator;
+    private final VectorTransformer vectorTransformer;
 
     public static MethodFieldMapper createFieldMapper(
         String fullname,
@@ -174,6 +175,7 @@ public class MethodFieldMapper extends KNNVectorFieldMapper {
         this.perDimensionProcessor = knnLibraryIndexingContext.getPerDimensionProcessor();
         this.perDimensionValidator = knnLibraryIndexingContext.getPerDimensionValidator();
         this.vectorValidator = knnLibraryIndexingContext.getVectorValidator();
+        this.vectorTransformer = knnLibraryIndexingContext.getVectorTransformer();
     }
 
     @Override
@@ -189,5 +191,10 @@ public class MethodFieldMapper extends KNNVectorFieldMapper {
     @Override
     protected PerDimensionProcessor getPerDimensionProcessor() {
         return perDimensionProcessor;
+    }
+
+    @Override
+    protected VectorTransformer getVectorTransformer() {
+        return vectorTransformer;
     }
 }

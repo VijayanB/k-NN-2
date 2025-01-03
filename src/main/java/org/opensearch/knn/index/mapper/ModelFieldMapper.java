@@ -41,6 +41,7 @@ public class ModelFieldMapper extends KNNVectorFieldMapper {
     private PerDimensionProcessor perDimensionProcessor;
     private PerDimensionValidator perDimensionValidator;
     private VectorValidator vectorValidator;
+    private VectorTransformer vectorTransformer;
 
     private final String modelId;
 
@@ -185,6 +186,31 @@ public class ModelFieldMapper extends KNNVectorFieldMapper {
     protected PerDimensionProcessor getPerDimensionProcessor() {
         initPerDimensionProcessor();
         return perDimensionProcessor;
+    }
+
+    @Override
+    protected VectorTransformer getVectorTransformer() {
+        initVectorTransformer();
+        return vectorTransformer;
+    }
+
+    private void initVectorTransformer() {
+        if (vectorTransformer != null) {
+            return;
+        }
+        ModelMetadata modelMetadata = getModelMetadata(modelDao, modelId);
+
+        KNNMethodContext knnMethodContext = getKNNMethodContextFromModelMetadata(modelMetadata);
+        KNNMethodConfigContext knnMethodConfigContext = getKNNMethodConfigContextFromModelMetadata(modelMetadata);
+        // Need to handle BWC case
+        if (knnMethodContext == null || knnMethodConfigContext == null) {
+            vectorTransformer = VectorTransformerFactory.getVectorTransformer(modelMetadata.getKnnEngine(), modelMetadata.getSpaceType());
+            return;
+        }
+
+        KNNLibraryIndexingContext knnLibraryIndexingContext = knnMethodContext.getKnnEngine()
+            .getKNNLibraryIndexingContext(knnMethodContext, knnMethodConfigContext);
+        vectorTransformer = knnLibraryIndexingContext.getVectorTransformer();
     }
 
     private void initVectorValidator() {
