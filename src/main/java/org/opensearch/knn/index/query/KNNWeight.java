@@ -276,6 +276,8 @@ public class KNNWeight extends Weight {
             );
         }
 
+
+
         final SegmentLevelQuantizationInfo segmentLevelQuantizationInfo = SegmentLevelQuantizationInfo.build(
             reader,
             fieldInfo,

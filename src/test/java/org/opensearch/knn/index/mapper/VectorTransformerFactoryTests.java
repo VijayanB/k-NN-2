@@ -17,18 +17,7 @@ public class VectorTransformerFactoryTests extends KNNTestCase {
     public void testAllSpaceTypes_withFaiss() {
         for (SpaceType spaceType : SpaceType.values()) {
             VectorTransformer transformer = VectorTransformerFactory.getVectorTransformer(KNNEngine.FAISS, spaceType);
-            if (spaceType == SpaceType.COSINESIMIL) {
-                assertTrue(
-                    "Should return NormalizeVectorTransformer for FAISS with " + spaceType,
-                    transformer instanceof NormalizeVectorTransformer
-                );
-            } else {
-                assertSame(
-                    "Should return NOOP transformer for FAISS with " + spaceType,
-                    VectorTransformer.NOOP_VECTOR_TRANSFORMER,
-                    transformer
-                );
-            }
+            validateTransformer(spaceType, KNNEngine.FAISS, transformer);
         }
     }
 
@@ -36,18 +25,7 @@ public class VectorTransformerFactoryTests extends KNNTestCase {
         // Test all engines with COSINESIMIL space type
         for (KNNEngine engine : KNNEngine.values()) {
             VectorTransformer transformer = VectorTransformerFactory.getVectorTransformer(engine, SpaceType.COSINESIMIL);
-            if (engine == KNNEngine.FAISS) {
-                assertTrue(
-                    "Should return NormalizeVectorTransformer for " + engine + " with COSINESIMIL",
-                    transformer instanceof NormalizeVectorTransformer
-                );
-            } else {
-                assertSame(
-                    "Should return NOOP transformer for " + engine + " with COSINESIMIL",
-                    VectorTransformer.NOOP_VECTOR_TRANSFORMER,
-                    transformer
-                );
-            }
+            validateTransformer(SpaceType.COSINESIMIL, engine, transformer);
         }
     }
 
@@ -62,18 +40,7 @@ public class VectorTransformerFactoryTests extends KNNTestCase {
             when(context.getKnnEngine()).thenReturn(KNNEngine.FAISS);
             when(context.getSpaceType()).thenReturn(spaceType);
             VectorTransformer transformer = VectorTransformerFactory.getVectorTransformer(context);
-            if (spaceType == SpaceType.COSINESIMIL) {
-                assertTrue(
-                    "Should return NormalizeVectorTransformer for FAISS with " + spaceType,
-                    transformer instanceof NormalizeVectorTransformer
-                );
-            } else {
-                assertSame(
-                    "Should return NOOP transformer for FAISS with " + spaceType,
-                    VectorTransformer.NOOP_VECTOR_TRANSFORMER,
-                    transformer
-                );
-            }
+            validateTransformer(spaceType, KNNEngine.FAISS, transformer);
         }
     }
 
@@ -84,18 +51,22 @@ public class VectorTransformerFactoryTests extends KNNTestCase {
             when(context.getKnnEngine()).thenReturn(engine);
             when(context.getSpaceType()).thenReturn(SpaceType.COSINESIMIL);
             VectorTransformer transformer = VectorTransformerFactory.getVectorTransformer(context);
-            if (engine == KNNEngine.FAISS) {
-                assertTrue(
-                    "Should return NormalizeVectorTransformer for " + engine + " with COSINESIMIL",
-                    transformer instanceof NormalizeVectorTransformer
-                );
-            } else {
-                assertSame(
-                    "Should return NOOP transformer for " + engine + " with COSINESIMIL",
-                    VectorTransformer.NOOP_VECTOR_TRANSFORMER,
-                    transformer
-                );
-            }
+            validateTransformer(SpaceType.COSINESIMIL, engine, transformer);
+        }
+    }
+
+    private static void validateTransformer(SpaceType spaceType, KNNEngine engine, VectorTransformer transformer) {
+        if (spaceType == SpaceType.COSINESIMIL && engine == KNNEngine.FAISS) {
+            assertTrue(
+                "Should return NormalizeVectorTransformer for FAISS with " + spaceType,
+                transformer instanceof NormalizeVectorTransformer
+            );
+        } else {
+            assertSame(
+                "Should return NOOP transformer for " + engine + " with COSINESIMIL",
+                VectorTransformer.NOOP_VECTOR_TRANSFORMER,
+                transformer
+            );
         }
     }
 }
