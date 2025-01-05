@@ -225,10 +225,29 @@ public class NativeIndexWriter {
         // description.
         maybeAddBinaryPrefixForFaissBWC(knnEngine, parameters, fieldAttributes);
 
+        updateSpaceTypeForFaissIfRequiredInParams(knnEngine, parameters, fieldAttributes);
+
         // Used to determine how many threads to use when indexing
         parameters.put(KNNConstants.INDEX_THREAD_QTY, KNNSettings.state().getSettingValue(KNNSettings.KNN_ALGO_PARAM_INDEX_THREAD_QTY));
 
         return parameters;
+    }
+
+    private void updateSpaceTypeForFaissIfRequiredInParams(
+        KNNEngine knnEngine,
+        Map<String, Object> parameters,
+        Map<String, String> fieldAttributes
+    ) {
+        if (KNNEngine.FAISS != knnEngine) {
+            return;
+        }
+        /**
+         * Converts COSINESIMIL space type to INNER_PRODUCT since cosine similarity is not supported natively by FAISS,
+         * and it can be computed using inner product after vector normalization
+         */
+        if (SpaceType.COSINESIMIL.getValue().equals(parameters.get(KNNConstants.SPACE_TYPE))) {
+            parameters.put(KNNConstants.SPACE_TYPE, SpaceType.INNER_PRODUCT.getValue());
+        }
     }
 
     private void maybeAddBinaryPrefixForFaissBWC(KNNEngine knnEngine, Map<String, Object> parameters, Map<String, String> fieldAttributes) {

@@ -692,8 +692,9 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
                 return;
             }
             final byte[] array = bytesArrayOptional.get();
-            getVectorValidator().validateVector(array);
-            context.doc().addAll(getFieldsForByteVector(array));
+            final byte[] transformedArray = getVectorTransformer().transform(array);
+            getVectorValidator().validateVector(transformedArray);
+            context.doc().addAll(getFieldsForByteVector(transformedArray));
         } else if (VectorDataType.FLOAT == vectorDataType) {
             Optional<float[]> floatsArrayOptional = getFloatsFromContext(context, dimension);
 
@@ -701,8 +702,9 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
                 return;
             }
             final float[] array = floatsArrayOptional.get();
-            getVectorValidator().validateVector(array);
-            context.doc().addAll(getFieldsForFloatVector(array));
+            final float[] transformedArray = getVectorTransformer().transform(array);
+            getVectorValidator().validateVector(transformedArray);
+            context.doc().addAll(getFieldsForFloatVector(transformedArray));
         } else {
             throw new IllegalArgumentException(
                 String.format(Locale.ROOT, "Cannot parse context for unsupported values provided for field [%s]", VECTOR_DATA_TYPE_FIELD)

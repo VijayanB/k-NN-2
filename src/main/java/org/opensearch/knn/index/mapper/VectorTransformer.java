@@ -6,19 +6,42 @@
 package org.opensearch.knn.index.mapper;
 
 /**
- * Transform given vector into new value of same type. This can be used by parser if they want
- * to transform parsed value into new value before passing value to the next stage
+ * Defines operations for transforming vectors in the k-NN search context.
+ * Implementations can modify vectors while preserving their dimensional properties
+ * for specific use cases such as normalization, scaling, or other transformations.
+ *
+ * <p>This interface provides default implementations that pass through the original
+ * vector without modification. Implementing classes should override these methods
+ * to provide specific transformation logic.
  */
 public interface VectorTransformer {
+
     /**
-     * Transforms given float[] vector into new value
-     * @param vector input value to transform
-     * @return transformed vector
+     * Transforms a float vector into a new vector of the same type.
+     * The default implementation returns the input vector unchanged.
+     *
+     * @param vector The input vector to transform
+     * @return The transformed vector
      */
     default float[] transform(float[] vector) {
         return vector;
     }
 
+    /**
+     * Transforms a byte vector into a new vector of the same type.
+     * The default implementation returns the input vector unchanged.
+     *
+     * @param vector The input vector to transform
+     * @return The transformed vector
+     */
+    default byte[] transform(byte[] vector) {
+        return vector;
+    }
+
+    /**
+     * A no-operation transformer that returns vectors unchanged.
+     * This constant can be used when no transformation is needed.
+     */
     VectorTransformer NOOP_VECTOR_TRANSFORMER = new VectorTransformer() {
     };
 }
