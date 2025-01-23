@@ -45,14 +45,16 @@ import java.util.Map;
 public class NativeEngines990KnnVectorsReader extends KnnVectorsReader {
 
     private final FlatVectorsReader flatVectorsReader;
+    private final FaissFlatVectorsReader faissFlatVectorsReader;
     private Map<String, String> quantizationStateCacheKeyPerField;
     private SegmentReadState segmentReadState;
     private final List<String> cacheKeys;
 
-    public NativeEngines990KnnVectorsReader(final SegmentReadState state, final FlatVectorsReader flatVectorsReader) {
+    public NativeEngines990KnnVectorsReader(final SegmentReadState state, final FlatVectorsReader flatVectorsReader) throws IOException {
         this.flatVectorsReader = flatVectorsReader;
         this.segmentReadState = state;
         this.cacheKeys = getVectorCacheKeysFromSegmentReaderState(state);
+        this.faissFlatVectorsReader = new FaissFlatVectorsReader(state);
         loadCacheKeyMap();
     }
 
