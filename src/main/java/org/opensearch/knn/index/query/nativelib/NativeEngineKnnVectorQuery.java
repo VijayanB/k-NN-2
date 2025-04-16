@@ -190,11 +190,11 @@ public class NativeEngineKnnVectorQuery extends Query {
             LeafReaderContext leafReaderContext = leafReaderContexts.get(i);
             int finalI = i;
             rescoreTasks.add(() -> {
-                PerLeafResult perLeafeResult = perLeafResults.get(finalI);
-                if (perLeafeResult.getResult().isEmpty()) {
-                    return perLeafeResult;
+                PerLeafResult perLeafResult = perLeafResults.get(finalI);
+                if (perLeafResult.getResult().isEmpty()) {
+                    return perLeafResult;
                 }
-                DocIdSetIterator matchedDocs = ResultUtil.resultMapToDocIds(perLeafeResult.getResult());
+                DocIdSetIterator matchedDocs = ResultUtil.resultMapToDocIds(perLeafResult.getResult());
                 final ExactSearcher.ExactSearcherContext exactSearcherContext = ExactSearcher.ExactSearcherContext.builder()
                     .matchedDocsIterator(matchedDocs)
                     .numberOfMatchedDocs(perLeafResults.get(finalI).getResult().size())
@@ -205,8 +205,8 @@ public class NativeEngineKnnVectorQuery extends Query {
                     .knnQuery(knnQuery)
                     .build();
                 Map<Integer, Float> rescoreResult = knnWeight.exactSearch(leafReaderContext, exactSearcherContext);
-                perLeafeResult.setResult(rescoreResult);
-                return perLeafeResult;
+                perLeafResult.setResult(rescoreResult);
+                return perLeafResult;
             });
         }
         return indexSearcher.getTaskExecutor().invokeAll(rescoreTasks);
