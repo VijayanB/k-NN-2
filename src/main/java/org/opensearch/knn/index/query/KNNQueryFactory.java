@@ -35,6 +35,7 @@ import static org.opensearch.knn.index.engine.KNNEngine.ENGINES_SUPPORTING_NESTE
 public class KNNQueryFactory extends BaseQueryFactory {
     /**
      * Creates a Lucene query for a particular engine.
+     *
      * @param createQueryRequest request object that has all required fields to construct the query
      * @return Lucene Query
      */
@@ -63,57 +64,57 @@ public class KNNQueryFactory extends BaseQueryFactory {
 
         if (parentFilter == null && expandNested) {
             throw new IllegalArgumentException(
-                String.format(
-                    Locale.ROOT,
-                    "Invalid value provided for the [%s] field. [%s] is only supported with a nested field.",
-                    EXPAND_NESTED,
-                    EXPAND_NESTED
-                )
+                    String.format(
+                            Locale.ROOT,
+                            "Invalid value provided for the [%s] field. [%s] is only supported with a nested field.",
+                            EXPAND_NESTED,
+                            EXPAND_NESTED
+                    )
             );
         }
 
         if (memoryOptimizedSearchSupported == false
-            && KNNEngine.getEnginesThatCreateCustomSegmentFiles().contains(createQueryRequest.getKnnEngine())) {
+                && KNNEngine.getEnginesThatCreateCustomSegmentFiles().contains(createQueryRequest.getKnnEngine())) {
             final Query validatedFilterQuery = validateFilterQuerySupport(filterQuery, createQueryRequest.getKnnEngine());
 
             log.debug(
-                "Creating custom k-NN query for index:{}, field:{}, k:{}, filterQuery:{}, efSearch:{}",
-                indexName,
-                fieldName,
-                k,
-                validatedFilterQuery,
-                methodParameters
+                    "Creating custom k-NN query for index:{}, field:{}, k:{}, filterQuery:{}, efSearch:{}",
+                    indexName,
+                    fieldName,
+                    k,
+                    validatedFilterQuery,
+                    methodParameters
             );
 
             KNNQuery knnQuery = null;
             switch (vectorDataType) {
                 case BINARY:
                     knnQuery = KNNQuery.builder()
-                        .field(fieldName)
-                        .byteQueryVector(byteVector)
-                        .indexName(indexName)
-                        .parentsFilter(parentFilter)
-                        .k(k)
-                        .methodParameters(methodParameters)
-                        .filterQuery(validatedFilterQuery)
-                        .vectorDataType(vectorDataType)
-                        .rescoreContext(rescoreContext)
-                        .shardId(shardId)
-                        .build();
+                            .field(fieldName)
+                            .byteQueryVector(byteVector)
+                            .indexName(indexName)
+                            .parentsFilter(parentFilter)
+                            .k(k)
+                            .methodParameters(methodParameters)
+                            .filterQuery(validatedFilterQuery)
+                            .vectorDataType(vectorDataType)
+                            .rescoreContext(rescoreContext)
+                            .shardId(shardId)
+                            .build();
                     break;
                 default:
                     knnQuery = KNNQuery.builder()
-                        .field(fieldName)
-                        .queryVector(vector)
-                        .indexName(indexName)
-                        .parentsFilter(parentFilter)
-                        .k(k)
-                        .methodParameters(methodParameters)
-                        .filterQuery(validatedFilterQuery)
-                        .vectorDataType(vectorDataType)
-                        .rescoreContext(rescoreContext)
-                        .shardId(shardId)
-                        .build();
+                            .field(fieldName)
+                            .queryVector(vector)
+                            .indexName(indexName)
+                            .parentsFilter(parentFilter)
+                            .k(k)
+                            .methodParameters(methodParameters)
+                            .filterQuery(validatedFilterQuery)
+                            .vectorDataType(vectorDataType)
+                            .rescoreContext(rescoreContext)
+                            .shardId(shardId)
+                            .build();
             }
 
             if (createQueryRequest.getRescoreContext().isPresent()
@@ -130,27 +131,7 @@ public class KNNQueryFactory extends BaseQueryFactory {
         }
         int luceneK = requestEfSearch == null ? k : Math.max(k, requestEfSearch);
         log.debug("Creating Lucene k-NN query for index: {}, field:{}, k: {}", indexName, fieldName, k);
-        switch (vectorDataType) {
-            case BYTE:
-            case BINARY:
-                return new LuceneEngineKnnVectorQuery(
-                    getKnnByteVectorQuery(fieldName, byteVector, luceneK, filterQuery, parentFilter, expandNested)
-                );
-            case FLOAT:
-                return new LuceneEngineKnnVectorQuery(
-                    getKnnFloatVectorQuery(fieldName, vector, luceneK, filterQuery, parentFilter, expandNested)
-                );
-            default:
-                throw new IllegalArgumentException(
-                    String.format(
-                        Locale.ROOT,
-                        "Invalid value provided for [%s] field. Supported values are [%s], but got: %s",
-                        VECTOR_DATA_TYPE_FIELD,
-                        SUPPORTED_VECTOR_DATA_TYPES,
-                        vectorDataType
-                    )
-                );
-        }
+        return LuceneEngineKnnVectorQuery.builder().fieldName(fieldName).byteVector(byteVector).k(luceneK).filterQuery(filterQuery).parentFilter(parentFilter).expandNested(expandNested).build();
     }
 
     private static Query validateFilterQuerySupport(final Query filterQuery, final KNNEngine knnEngine) {
@@ -159,59 +140,5 @@ public class KNNQueryFactory extends BaseQueryFactory {
             return filterQuery;
         }
         return null;
-    }
-
-    /**
-     * If parentFilter is not null, it is a nested query. Therefore, we delegate creation of query to {@link NestedKnnVectorQueryFactory}
-     * which will create query to dedupe search result per parent so that we can get k parent results at the end.
-     */
-    private static Query getKnnByteVectorQuery(
-        final String fieldName,
-        final byte[] byteVector,
-        final int k,
-        final Query filterQuery,
-        final BitSetProducer parentFilter,
-        final boolean expandNested
-    ) {
-        if (parentFilter == null) {
-            assert expandNested == false : "expandNested is allowed to be true only for nested fields.";
-            return new KnnByteVectorQuery(fieldName, byteVector, k, filterQuery);
-        } else {
-            return NestedKnnVectorQueryFactory.createNestedKnnVectorQuery(
-                fieldName,
-                byteVector,
-                k,
-                filterQuery,
-                parentFilter,
-                expandNested
-            );
-        }
-    }
-
-    /**
-     * If parentFilter is not null, it is a nested query. Therefore, we delegate creation of query to {@link NestedKnnVectorQueryFactory}
-     * which will create query to dedupe search result per parent so that we can get k parent results at the end.
-     */
-    private static Query getKnnFloatVectorQuery(
-        final String fieldName,
-        final float[] floatVector,
-        final int k,
-        final Query filterQuery,
-        final BitSetProducer parentFilter,
-        final boolean expandNested
-    ) {
-        if (parentFilter == null) {
-            assert expandNested == false : "expandNested is allowed to be true only for nested fields.";
-            return new KnnFloatVectorQuery(fieldName, floatVector, k, filterQuery);
-        } else {
-            return NestedKnnVectorQueryFactory.createNestedKnnVectorQuery(
-                fieldName,
-                floatVector,
-                k,
-                filterQuery,
-                parentFilter,
-                expandNested
-            );
-        }
     }
 }

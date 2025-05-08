@@ -5,7 +5,6 @@
 
 package org.opensearch.knn.index.query.iterators;
 
-import org.apache.lucene.search.ConjunctionUtils;
 import org.apache.lucene.search.DocIdSetIterator;
 import org.opensearch.common.Nullable;
 import org.opensearch.knn.index.SpaceType;
@@ -14,7 +13,6 @@ import org.opensearch.knn.index.query.SegmentLevelQuantizationUtil;
 import org.opensearch.knn.index.vectorvalues.KNNFloatVectorValues;
 
 import java.io.IOException;
-import java.util.List;
 
 /**
  * Inspired by DiversifyingChildrenFloatKnnVectorQuery in lucene
@@ -22,38 +20,20 @@ import java.util.List;
  *
  * The class is used in KNNWeight to score all docs, but, it iterates over filterIdsArray if filter is provided
  */
-public class VectorIdsKNNIterator implements KNNIterator {
+public class QuantizedVectorIdsKNNIterator implements KNNIterator {
     protected final DocIdSetIterator filterIdsIterator;
-    protected final float[] queryVector;
-    private final byte[] quantizedQueryVector;
+    protected final byte[] queryVector;
     protected final KNNFloatVectorValues knnFloatVectorValues;
     protected final SpaceType spaceType;
-    private int docIdFinal;
     protected float currentScore = Float.NEGATIVE_INFINITY;
     protected int docId;
     private final SegmentLevelQuantizationInfo segmentLevelQuantizationInfo;
-    private final DocIdSetIterator finalIterator;
 
-    public VectorIdsKNNIterator(
+    public QuantizedVectorIdsKNNIterator(
         @Nullable final DocIdSetIterator filterIdsIterator,
-        final float[] queryVector,
-        final KNNFloatVectorValues knnFloatVectorValues,
-        final SpaceType spaceType
-    ) throws IOException {
-        this(filterIdsIterator, queryVector, knnFloatVectorValues, spaceType, null, null);
-    }
-
-    public VectorIdsKNNIterator(final float[] queryVector, final KNNFloatVectorValues knnFloatVectorValues, final SpaceType spaceType)
-        throws IOException {
-        this(null, queryVector, knnFloatVectorValues, spaceType, null, null);
-    }
-
-    public VectorIdsKNNIterator(
-        @Nullable final DocIdSetIterator filterIdsIterator,
-        final float[] queryVector,
+        final byte[] queryVector,
         final KNNFloatVectorValues knnFloatVectorValues,
         final SpaceType spaceType,
-        final byte[] quantizedQueryVector,
         final SegmentLevelQuantizationInfo segmentLevelQuantizationInfo
     ) throws IOException {
         this.filterIdsIterator = filterIdsIterator;
@@ -63,10 +43,7 @@ public class VectorIdsKNNIterator implements KNNIterator {
         // This cannot be moved inside nextDoc() method since it will break when we have nested field, where
         // nextDoc should already be referring to next knnVectorValues
         this.docId = getNextDocId();
-        this.quantizedQueryVector = quantizedQueryVector;
         this.segmentLevelQuantizationInfo = segmentLevelQuantizationInfo;
-        this.finalIterator = ConjunctionUtils.createConjunction(List.of(filterIdsIterator, knnFloatVectorValues), List.of());
-        this.docIdFinal = this.finalIterator.nextDoc();
     }
 
     /**
@@ -84,7 +61,6 @@ public class VectorIdsKNNIterator implements KNNIterator {
         currentScore = computeScore();
         int currentDocId = docId;
         docId = getNextDocId();
-        docIdFinal = finalIterator.nextDoc();
         return currentDocId;
     }
 
@@ -95,14 +71,8 @@ public class VectorIdsKNNIterator implements KNNIterator {
 
     protected float computeScore() throws IOException {
         final float[] vector = knnFloatVectorValues.getVector();
-        if (segmentLevelQuantizationInfo != null && quantizedQueryVector != null) {
-            byte[] quantizedVector = SegmentLevelQuantizationUtil.quantizeVector(vector, segmentLevelQuantizationInfo);
-            return SpaceType.HAMMING.getKnnVectorSimilarityFunction().compare(quantizedQueryVector, quantizedVector);
-        } else {
-            // Calculates a similarity score between the two vectors with a specified function. Higher similarity
-            // scores correspond to closer vectors.
-            return spaceType.getKnnVectorSimilarityFunction().compare(queryVector, vector);
-        }
+        byte[] quantizedVector = SegmentLevelQuantizationUtil.quantizeVector(vector, segmentLevelQuantizationInfo);
+        return SpaceType.HAMMING.getKnnVectorSimilarityFunction().compare(queryVector, quantizedVector);
     }
 
     protected int getNextDocId() throws IOException {

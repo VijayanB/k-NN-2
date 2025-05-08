@@ -21,14 +21,8 @@ import org.opensearch.common.lucene.Lucene;
 import org.opensearch.knn.common.FieldInfoExtractor;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
-import org.opensearch.knn.index.query.iterators.BinaryVectorIdsKNNIterator;
+import org.opensearch.knn.index.query.iterators.*;
 import org.opensearch.knn.index.engine.KNNEngine;
-import org.opensearch.knn.index.query.iterators.ByteVectorIdsKNNIterator;
-import org.opensearch.knn.index.query.iterators.NestedBinaryVectorIdsKNNIterator;
-import org.opensearch.knn.index.query.iterators.VectorIdsKNNIterator;
-import org.opensearch.knn.index.query.iterators.KNNIterator;
-import org.opensearch.knn.index.query.iterators.NestedByteVectorIdsKNNIterator;
-import org.opensearch.knn.index.query.iterators.NestedVectorIdsKNNIterator;
 import org.opensearch.knn.index.vectorvalues.KNNBinaryVectorValues;
 import org.opensearch.knn.index.vectorvalues.KNNByteVectorValues;
 import org.opensearch.knn.index.vectorvalues.KNNFloatVectorValues;
@@ -197,38 +191,46 @@ public class ExactSearcher {
             }
             return new ByteVectorIdsKNNIterator(matchedDocs, knnQuery.getQueryVector(), (KNNByteVectorValues) vectorValues, spaceType);
         }
-        final byte[] quantizedQueryVector;
-        final SegmentLevelQuantizationInfo segmentLevelQuantizationInfo;
+        final KNNVectorValues<float[]> vectorValues = KNNVectorValuesFactory.getVectorValues(fieldInfo, reader);
         if (exactSearcherContext.isUseQuantizedVectorsForSearch()) {
             // Build Segment Level Quantization info.
-            segmentLevelQuantizationInfo = SegmentLevelQuantizationInfo.build(reader, fieldInfo, knnQuery.getField());
-            // Quantize the Query Vector Once.
-            quantizedQueryVector = SegmentLevelQuantizationUtil.quantizeVector(knnQuery.getQueryVector(), segmentLevelQuantizationInfo);
-        } else {
-            segmentLevelQuantizationInfo = null;
-            quantizedQueryVector = null;
+            final SegmentLevelQuantizationInfo segmentLevelQuantizationInfo = SegmentLevelQuantizationInfo.build(
+                reader,
+                fieldInfo,
+                knnQuery.getField()
+            );
+            final byte[] quantizedQueryVector = SegmentLevelQuantizationUtil.quantizeVector(
+                knnQuery.getQueryVector(),
+                segmentLevelQuantizationInfo
+            );
+            if (isNestedRequired) {
+                return new NestedQuantizedVectorIdsKNNIterator(
+                    matchedDocs,
+                    quantizedQueryVector,
+                    (KNNFloatVectorValues) vectorValues,
+                    spaceType,
+                    knnQuery.getParentsFilter().getBitSet(leafReaderContext),
+                    segmentLevelQuantizationInfo
+                );
+            }
+            return new QuantizedVectorIdsKNNIterator(
+                matchedDocs,
+                quantizedQueryVector,
+                (KNNFloatVectorValues) vectorValues,
+                spaceType,
+                segmentLevelQuantizationInfo
+            );
         }
-
-        final KNNVectorValues<float[]> vectorValues = KNNVectorValuesFactory.getVectorValues(fieldInfo, reader);
         if (isNestedRequired) {
             return new NestedVectorIdsKNNIterator(
                 matchedDocs,
                 knnQuery.getQueryVector(),
                 (KNNFloatVectorValues) vectorValues,
                 spaceType,
-                knnQuery.getParentsFilter().getBitSet(leafReaderContext),
-                quantizedQueryVector,
-                segmentLevelQuantizationInfo
+                knnQuery.getParentsFilter().getBitSet(leafReaderContext)
             );
         }
-        return new VectorIdsKNNIterator(
-            matchedDocs,
-            knnQuery.getQueryVector(),
-            (KNNFloatVectorValues) vectorValues,
-            spaceType,
-            quantizedQueryVector,
-            segmentLevelQuantizationInfo
-        );
+        return new VectorIdsKNNIterator(matchedDocs, knnQuery.getQueryVector(), (KNNFloatVectorValues) vectorValues, spaceType);
     }
 
     /**

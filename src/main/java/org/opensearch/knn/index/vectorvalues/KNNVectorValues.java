@@ -10,6 +10,7 @@ import org.apache.lucene.codecs.KnnFieldVectorsWriter;
 import org.apache.lucene.index.BinaryDocValues;
 import org.apache.lucene.index.ByteVectorValues;
 import org.apache.lucene.index.FloatVectorValues;
+import org.apache.lucene.search.DocIdSetIterator;
 
 import java.io.IOException;
 
@@ -19,7 +20,7 @@ import java.io.IOException;
  * @param <T>
  */
 @ToString
-public abstract class KNNVectorValues<T> {
+public abstract class KNNVectorValues<T> extends DocIdSetIterator {
 
     protected final KNNVectorValuesIterator vectorValuesIterator;
     protected int dimension;
@@ -114,4 +115,15 @@ public abstract class KNNVectorValues<T> {
     public int nextDoc() throws IOException {
         return vectorValuesIterator.nextDoc();
     }
+
+    @Override
+    public int docID() {
+        return docId();
+    }
+
+    @Override
+    public long cost() {
+        return 0;
+    }
+
 }
