@@ -71,6 +71,12 @@ public class KNNQueryFactory extends BaseQueryFactory {
                 )
             );
         }
+        Query returningQuery = null;
+        boolean shouldRescore = isRescoreRequired(rescoreContext);
+        int updatedK = k;
+        if(shouldRescore) {
+            updatedK = rescoreContext.getFirstPassK(k,false, getDimension(vector, byteVector));
+        }
 
         if (memoryOptimizedSearchSupported == false
             && KNNEngine.getEnginesThatCreateCustomSegmentFiles().contains(createQueryRequest.getKnnEngine())) {
@@ -93,7 +99,7 @@ public class KNNQueryFactory extends BaseQueryFactory {
                         .byteQueryVector(byteVector)
                         .indexName(indexName)
                         .parentsFilter(parentFilter)
-                        .k(k)
+                        .k(updatedK)
                         .methodParameters(methodParameters)
                         .filterQuery(validatedFilterQuery)
                         .vectorDataType(vectorDataType)
@@ -107,7 +113,7 @@ public class KNNQueryFactory extends BaseQueryFactory {
                         .queryVector(vector)
                         .indexName(indexName)
                         .parentsFilter(parentFilter)
-                        .k(k)
+                        .k(updatedK)
                         .methodParameters(methodParameters)
                         .filterQuery(validatedFilterQuery)
                         .vectorDataType(vectorDataType)
@@ -118,28 +124,30 @@ public class KNNQueryFactory extends BaseQueryFactory {
 
             if (createQueryRequest.getRescoreContext().isPresent()
                 || (ENGINES_SUPPORTING_NESTED_FIELDS.contains(createQueryRequest.getKnnEngine()) && expandNested)) {
-                return new NativeEngineKnnVectorQuery(knnQuery, QueryUtils.INSTANCE, expandNested);
+                returningQuery = new NativeEngineKnnVectorQuery(knnQuery, QueryUtils.INSTANCE, expandNested);
             }
 
-            return knnQuery;
+            returningQuery = knnQuery;
         }
 
         Integer requestEfSearch = null;
         if (methodParameters != null && methodParameters.containsKey(METHOD_PARAMETER_EF_SEARCH)) {
             requestEfSearch = (Integer) methodParameters.get(METHOD_PARAMETER_EF_SEARCH);
         }
-        int luceneK = requestEfSearch == null ? k : Math.max(k, requestEfSearch);
+        int luceneK = requestEfSearch == null ? k : Math.max(updatedK, requestEfSearch);
         log.debug("Creating Lucene k-NN query for index: {}, field:{}, k: {}", indexName, fieldName, k);
         switch (vectorDataType) {
             case BYTE:
             case BINARY:
-                return new LuceneEngineKnnVectorQuery(
+                returningQuery = new LuceneEngineKnnVectorQuery(
                     getKnnByteVectorQuery(fieldName, byteVector, luceneK, filterQuery, parentFilter, expandNested)
                 );
+                break;
             case FLOAT:
-                return new LuceneEngineKnnVectorQuery(
+                returningQuery = new LuceneEngineKnnVectorQuery(
                     getKnnFloatVectorQuery(fieldName, vector, luceneK, filterQuery, parentFilter, expandNested)
                 );
+                break;
             default:
                 throw new IllegalArgumentException(
                     String.format(
@@ -151,6 +159,17 @@ public class KNNQueryFactory extends BaseQueryFactory {
                     )
                 );
         }
+
+
+        // checks for rescore
+        if (rescoreContext == null || !rescoreContext.isRescoreEnabled()) {
+            return returningQuery;
+        }
+        return new RescoreKnnVectorQuery(returningQuery, k);
+    }
+
+    private static boolean isRescoreRequired(RescoreContext context) {
+        return context != null && context.isRescoreEnabled();
     }
 
     private static Query validateFilterQuerySupport(final Query filterQuery, final KNNEngine knnEngine) {
@@ -212,6 +231,15 @@ public class KNNQueryFactory extends BaseQueryFactory {
                 parentFilter,
                 expandNested
             );
+        }
+    }
+    private static int getDimension(final float[] floatQueryVector, final byte[] byteQueryVector) {
+        if (floatQueryVector != null) {
+            return floatQueryVector.length;
+        } else if (byteQueryVector != null) {
+            return byteQueryVector.length;
+        } else {
+            throw new IllegalArgumentException("Query vector is null");
         }
     }
 }
