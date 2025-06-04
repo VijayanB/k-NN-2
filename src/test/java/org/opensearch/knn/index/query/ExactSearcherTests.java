@@ -57,7 +57,7 @@ public class ExactSearcherTests extends KNNTestCase {
         final KNNQuery query = KNNQuery.builder().field(FIELD_NAME).queryVector(queryVector).k(10).indexName(INDEX_NAME).build();
 
         final ExactSearcher.ExactSearcherContext.ExactSearcherContextBuilder exactSearcherContextBuilder =
-            ExactSearcher.ExactSearcherContext.builder().field(FIELD_NAME).queryVector(new QueryVector(queryVector));
+            ExactSearcher.ExactSearcherContext.builder().field(FIELD_NAME).floatQueryVector(queryVector);
 
         ExactSearcher exactSearcher = new ExactSearcher(null);
         final LeafReaderContext leafReaderContext = mock(LeafReaderContext.class);
@@ -87,7 +87,7 @@ public class ExactSearcherTests extends KNNTestCase {
             .build();
 
         final ExactSearcher.ExactSearcherContext.ExactSearcherContextBuilder exactSearcherContextBuilder =
-            ExactSearcher.ExactSearcherContext.builder().field(FIELD_NAME).queryVector(new QueryVector(queryVector));
+            ExactSearcher.ExactSearcherContext.builder().field(FIELD_NAME).floatQueryVector(queryVector);
 
         ExactSearcher exactSearcher = new ExactSearcher(null);
         final LeafReaderContext leafReaderContext = mock(LeafReaderContext.class);
@@ -130,7 +130,7 @@ public class ExactSearcherTests extends KNNTestCase {
                     // setting to true, so that if quantization details are present we want to do search on the quantized
                     // vectors as this flow is used in first pass of search.
                     .useQuantizedVectorsForSearch(false)
-                    .queryVector(new QueryVector(queryVector))
+                    .floatQueryVector(queryVector)
                     .radius(radius)
                     .maxResultWindow(maxResults)
                     .field(FIELD_NAME);

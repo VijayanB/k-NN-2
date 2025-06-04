@@ -36,7 +36,6 @@ public class RescoreKNNVectorQuery extends Query {
     private final String field;
     private final int k;
     private final float[] queryVector;
-    private final QueryUtils queryUtils;
     // Note: ideally query should not have to deal with shard level information. Adding it for logging purposes only
     // TODO: ThreadContext does not work with logger, remove this from here once its figured out
     private final int shardId;
@@ -48,14 +47,12 @@ public class RescoreKNNVectorQuery extends Query {
      * @param field      The field name containing the vector data
      * @param k          The number of nearest neighbors to return
      * @param queryVector The vector to compare against document vectors
-     * @param queryUtils Utility class for query operations
      */
-    public RescoreKNNVectorQuery(Query innerQuery, String field, int k, float[] queryVector, QueryUtils queryUtils, int shardId) {
+    public RescoreKNNVectorQuery(Query innerQuery, String field, int k, float[] queryVector, int shardId) {
         this.innerQuery = innerQuery;
         this.field = field;
         this.k = k;
         this.queryVector = queryVector;
-        this.queryUtils = queryUtils;
         this.shardId = shardId;
     }
 
@@ -70,7 +67,7 @@ public class RescoreKNNVectorQuery extends Query {
         if (topK.scoreDocs.length == 0) {
             return new MatchNoDocsQuery().createWeight(searcher, scoreMode, boost);
         }
-        return queryUtils.createDocAndScoreQuery(searcher.getIndexReader(), topK).createWeight(searcher, scoreMode, boost);
+        return QueryUtils.getInstance().createDocAndScoreQuery(searcher.getIndexReader(), topK).createWeight(searcher, scoreMode, boost);
     }
 
     private TopDocs[] doRescore(final IndexSearcher indexSearcher, Weight weight) throws IOException {

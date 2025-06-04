@@ -938,7 +938,7 @@ public class KNNWeightTests extends KNNWeightTestCase {
             // setting to true, so that if quantization details are present we want to do search on the quantized
             // vectors as this flow is used in first pass of search.
             .useQuantizedVectorsForSearch(true)
-            .queryVector(new QueryVector(queryVector))
+            .floatQueryVector(queryVector)
             .field(FIELD_NAME)
             .build();
         when(mockedExactSearcher.searchLeaf(leafReaderContext, exactSearchContext)).thenReturn(buildTopDocs(DOC_ID_TO_SCORES));

@@ -117,7 +117,7 @@ public class KNNQueryFactory extends BaseQueryFactory {
 
             if (createQueryRequest.getRescoreContext().isPresent()
                 || (ENGINES_SUPPORTING_NESTED_FIELDS.contains(createQueryRequest.getKnnEngine()) && expandNested)) {
-                return new NativeEngineKnnVectorQuery(knnQuery, QueryUtils.INSTANCE, expandNested);
+                return new NativeEngineKnnVectorQuery(knnQuery, QueryUtils.getInstance(), expandNested);
             }
 
             return knnQuery;
@@ -138,9 +138,7 @@ public class KNNQueryFactory extends BaseQueryFactory {
         Query luceneKnnQuery = new LuceneEngineKnnVectorQuery(
             getKnnVectorQuery(fieldName, vector, byteVector, luceneK, filterQuery, parentFilter, expandNested, vectorDataType)
         );
-        return needsRescore
-            ? new RescoreKNNVectorQuery(luceneKnnQuery, fieldName, k, vector, QueryUtils.INSTANCE, shardId)
-            : luceneKnnQuery;
+        return needsRescore ? new RescoreKNNVectorQuery(luceneKnnQuery, fieldName, k, vector, shardId) : luceneKnnQuery;
 
     }
 
