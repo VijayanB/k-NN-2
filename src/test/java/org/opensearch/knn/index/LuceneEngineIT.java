@@ -26,6 +26,7 @@ import org.opensearch.knn.TestUtils;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.query.KNNQueryBuilder;
 import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.query.rescore.RescoreContext;
 
 import java.io.IOException;
 import java.util.Arrays;
@@ -919,6 +920,56 @@ public class LuceneEngineIT extends KNNRestTestCase {
             ResponseException.class,
             () -> validateRadiusSearchResults(TEST_QUERY_VECTORS, null, score, SpaceType.L2, expectedResults, null, null, methodParameters)
         );
+    }
+
+    @SneakyThrows
+    public void testIndexingAndQuerying_withSQEncoder_withRescore() {
+        createKnnIndexMappingWithLuceneEngineAndSQEncoder(
+                DIMENSION,
+                SpaceType.INNER_PRODUCT,
+                VectorDataType.FLOAT,
+                LUCENE_SQ_DEFAULT_BITS,
+                MAXIMUM_CONFIDENCE_INTERVAL
+        );
+
+        int numDocs = 10;
+        for (int i = 0; i < numDocs; i++) {
+            float[] indexVector = new float[DIMENSION];
+            Arrays.fill(indexVector, (float) i);
+            addKnnDocWithAttributes(INDEX_NAME, Integer.toString(i), FIELD_NAME, indexVector, ImmutableMap.of("rating", String.valueOf(i)));
+        }
+
+        // Assert that all docs are ingested
+        refreshAllNonSystemIndices();
+        assertEquals(numDocs, getDocCount(INDEX_NAME));
+
+        float[] queryVector = new float[DIMENSION];
+        Arrays.fill(queryVector, (float) numDocs);
+        int k = 10;
+
+        KNNQueryBuilder knnQueryBuilder = KNNQueryBuilder.builder()
+                .fieldName(FIELD_NAME)
+                .vector(queryVector)
+                .k(k)
+                .rescoreContext(new RescoreContext(1.0f, true, true
+                ))
+                .build();
+
+        Response searchResponse = searchKNNIndex(INDEX_NAME, knnQueryBuilder, k);
+        List<KNNResult> results = parseSearchResponse(EntityUtils.toString(searchResponse.getEntity()), FIELD_NAME);
+        assertEquals(k, results.size());
+        KNNQueryBuilder knnQueryBuilder1 = KNNQueryBuilder.builder()
+                .fieldName(FIELD_NAME)
+                .vector(queryVector)
+                .k(k)
+                .build();
+
+        Response searchResponse1 = searchKNNIndex(INDEX_NAME, knnQueryBuilder1, k);
+        List<KNNResult> results1 = parseSearchResponse(EntityUtils.toString(searchResponse1.getEntity()), FIELD_NAME);
+
+        for (int i = 0; i < k; i++) {
+            assertEquals(numDocs - i - 1, Integer.parseInt(results.get(i).getDocId()));
+        }
     }
 
     private void validateRadiusSearchResults(
