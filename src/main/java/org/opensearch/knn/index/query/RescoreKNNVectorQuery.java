@@ -5,6 +5,7 @@
 
 package org.opensearch.knn.index.query;
 
+import com.google.common.annotations.VisibleForTesting;
 import lombok.extern.log4j.Log4j2;
 import org.apache.lucene.index.LeafReaderContext;
 import org.apache.lucene.search.DocIdSetIterator;
@@ -39,6 +40,7 @@ public class RescoreKNNVectorQuery extends Query {
     // Note: ideally query should not have to deal with shard level information. Adding it for logging purposes only
     // TODO: ThreadContext does not work with logger, remove this from here once its figured out
     private final int shardId;
+    private final ExactSearcher exactSearcher;
 
     /**
      * Constructs a new RescoreKNNVectorQuery.
@@ -54,6 +56,17 @@ public class RescoreKNNVectorQuery extends Query {
         this.k = k;
         this.queryVector = queryVector;
         this.shardId = shardId;
+        this.exactSearcher = new ExactSearcher(ModelDao.OpenSearchKNNModelDao.getInstance());
+    }
+
+    @VisibleForTesting
+    public RescoreKNNVectorQuery(Query innerQuery, String field, int k, float[] queryVector, int shardId, ExactSearcher searcher) {
+        this.innerQuery = innerQuery;
+        this.field = field;
+        this.k = k;
+        this.queryVector = queryVector;
+        this.shardId = shardId;
+        this.exactSearcher = searcher;
     }
 
     @Override
@@ -73,9 +86,8 @@ public class RescoreKNNVectorQuery extends Query {
     private TopDocs[] doRescore(final IndexSearcher indexSearcher, Weight weight) throws IOException {
         List<LeafReaderContext> leafReaderContexts = indexSearcher.getIndexReader().leaves();
         List<Callable<TopDocs>> rescoreTasks = new ArrayList<>(leafReaderContexts.size());
-        ExactSearcher searcher = new ExactSearcher(ModelDao.OpenSearchKNNModelDao.getInstance());
         for (LeafReaderContext leafReaderContext : leafReaderContexts) {
-            rescoreTasks.add(() -> searchLeaf(searcher, weight, k, leafReaderContext));
+            rescoreTasks.add(() -> searchLeaf(exactSearcher, weight, k, leafReaderContext));
         }
         return indexSearcher.getTaskExecutor().invokeAll(rescoreTasks).toArray(TopDocs[]::new);
     }

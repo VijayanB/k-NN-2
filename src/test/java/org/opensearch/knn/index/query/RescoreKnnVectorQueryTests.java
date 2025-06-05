@@ -11,23 +11,31 @@ import org.apache.lucene.document.KnnFloatVectorField;
 import org.apache.lucene.index.DirectoryReader;
 import org.apache.lucene.index.IndexReader;
 import org.apache.lucene.index.IndexWriter;
+import org.apache.lucene.index.IndexWriterConfig;
 import org.apache.lucene.index.VectorSimilarityFunction;
 import org.apache.lucene.search.IndexSearcher;
 import org.apache.lucene.search.MatchAllDocsQuery;
 import org.apache.lucene.search.Query;
 import org.apache.lucene.search.ScoreDoc;
+import org.apache.lucene.search.ScoreMode;
+import org.apache.lucene.search.TaskExecutor;
 import org.apache.lucene.search.TopDocs;
+import org.apache.lucene.search.TotalHits;
+import org.apache.lucene.search.Weight;
+import org.apache.lucene.store.ByteBuffersDirectory;
 import org.apache.lucene.store.Directory;
+import org.apache.lucene.tests.analysis.MockAnalyzer;
 import org.mockito.MockedStatic;
 import org.mockito.Mockito;
+import org.opensearch.knn.index.query.common.QueryUtils;
 import org.opensearch.knn.indices.ModelDao;
 import org.opensearch.test.OpenSearchTestCase;
 
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.Callable;
 
 import static org.apache.lucene.tests.index.BaseKnnVectorsFormatTestCase.*;
 import static org.mockito.Mockito.*;
@@ -58,15 +66,15 @@ public class RescoreKnnVectorQueryTests extends OpenSearchTestCase {
 
     private List<Float> calculateTopScores(List<float[]> vectors, float[] queryVector, int k) {
         List<Float> scores = new ArrayList<>();
-        for (int i = 0; i < k; i++) {
-            scores.add(VectorSimilarityFunction.EUCLIDEAN.compare(queryVector, vectors.get(i)));
+        for (float[] vector : vectors) {
+            scores.add(VectorSimilarityFunction.EUCLIDEAN.compare(queryVector, vector));
         }
         scores.sort(Collections.reverseOrder());
-        return scores;
+        return scores.subList(0, k);
     }
 
     @SneakyThrows
-    public void testRescoreQuery() throws IOException {
+    public void testRescoreQuery() {
         int docsCount = 15;
         int dimension = 4;
         int finalK = 5;
@@ -75,6 +83,8 @@ public class RescoreKnnVectorQueryTests extends OpenSearchTestCase {
             addDocuments(vectors, directory);
             try (IndexReader reader = DirectoryReader.open(directory)) {
                 float[] queryVector = randomVector(dimension);
+                // Will use matchAll docs query to get all elements, but with score equal to 1, so that
+                // after rescore we can compare actual scores.
                 Query innerQuery = new MatchAllDocsQuery();
                 RescoreKNNVectorQuery rescoreKnnVectorQuery = new RescoreKNNVectorQuery(innerQuery, FIELD_NAME, finalK, queryVector, 1);
                 IndexSearcher searcher = newSearcher(reader, true, false);
@@ -90,5 +100,65 @@ public class RescoreKnnVectorQueryTests extends OpenSearchTestCase {
                 }
             }
         }
+    }
+
+    public void testRescore_withMockCalls() throws IOException {
+        IndexReader reader = createTestIndexReader();
+        IndexSearcher searcher = mock(IndexSearcher.class);
+        when(searcher.getIndexReader()).thenReturn(reader);
+        Query mockedInnerQuery = mock(Query.class);
+        Query mockedRewrittenQuery = mock(Query.class);
+        Weight mockedWeight = mock(Weight.class);
+        TaskExecutor taskExecutor = mock(TaskExecutor.class);
+        when(searcher.rewrite(mockedInnerQuery)).thenReturn(mockedRewrittenQuery);
+        when(searcher.createWeight(mockedRewrittenQuery, ScoreMode.TOP_SCORES, 1.0f)).thenReturn(mockedWeight);
+        when(searcher.getTaskExecutor()).thenReturn(taskExecutor);
+        ExactSearcher mockedExactSearcher = mock(ExactSearcher.class);
+        when(mockedWeight.scorer(any())).thenReturn(KNNScorer.emptyScorer());
+        TopDocs exactSearchResults = generateRandomTopDocs(2);
+        when(mockedExactSearcher.searchLeaf(any(), any())).thenReturn(exactSearchResults);
+        when(taskExecutor.invokeAll(any())).thenAnswer(invocationOnMock -> {
+            List<Callable<TopDocs>> callables = invocationOnMock.getArgument(0);
+            List<TopDocs> results = new ArrayList<>();
+            for (Callable<TopDocs> callable : callables) {
+                results.add(callable.call());
+            }
+            return results;
+        });
+        try (MockedStatic<ModelDao.OpenSearchKNNModelDao> mocked = Mockito.mockStatic(ModelDao.OpenSearchKNNModelDao.class)) {
+            mocked.when(ModelDao.OpenSearchKNNModelDao::getInstance).thenReturn(mock(ModelDao.OpenSearchKNNModelDao.class));
+            RescoreKNNVectorQuery rescoreKnnVectorQuery = new RescoreKNNVectorQuery(
+                mockedInnerQuery,
+                FIELD_NAME,
+                10,
+                new float[] { 1, 2 },
+                1,
+                mockedExactSearcher
+            );
+            Weight queryWeight = rescoreKnnVectorQuery.createWeight(searcher, ScoreMode.TOP_SCORES, 1.0f);
+            assertNotNull(queryWeight);
+            verify(searcher).rewrite(mockedInnerQuery);
+            verify(searcher).createWeight(mockedRewrittenQuery, ScoreMode.TOP_SCORES, 1);
+            verify(mockedExactSearcher).searchLeaf(any(), any());
+            Query expectedQuery = QueryUtils.getInstance().createDocAndScoreQuery(searcher.getIndexReader(), exactSearchResults);
+            assertEquals(expectedQuery, queryWeight.getQuery());
+        }
+
+    }
+
+    private TopDocs generateRandomTopDocs(int numDocs) {
+        ScoreDoc[] scoreDocs = new ScoreDoc[numDocs];
+        for (int i = 0; i < numDocs; i++) {
+            scoreDocs[i] = new ScoreDoc(i, randomFloat());
+        }
+        return new TopDocs(new TotalHits(numDocs, TotalHits.Relation.EQUAL_TO), scoreDocs);
+    }
+
+    private IndexReader createTestIndexReader() throws IOException {
+        ByteBuffersDirectory directory = new ByteBuffersDirectory();
+        IndexWriter writer = new IndexWriter(directory, new IndexWriterConfig(new MockAnalyzer(random())));
+        writer.addDocument(new Document());
+        writer.close();
+        return DirectoryReader.open(directory);
     }
 }
