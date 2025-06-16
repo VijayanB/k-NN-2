@@ -27,10 +27,10 @@ public enum CompressionLevel {
     x1(1, "1x", null, Collections.emptySet()),
     x2(2, "2x", null, Collections.emptySet()),
     x4(4, "4x", new RescoreContext(1.0f, false, true), Set.of(Mode.ON_DISK)),
-    x8(8, "8x", new RescoreContext(2.0f, false, true), Set.of(Mode.ON_DISK)),
-    x16(16, "16x", new RescoreContext(3.0f, false, true), Set.of(Mode.ON_DISK)),
-    x32(32, "32x", new RescoreContext(3.0f, false, true), Set.of(Mode.ON_DISK)),
-    x64(64, "64x", new RescoreContext(5.0f, false, true), Set.of(Mode.ON_DISK));
+    x8(4, "8x", new RescoreContext(2.0f, false, true), Set.of(Mode.ON_DISK)),
+    x16(4, "16x", new RescoreContext(3.0f, false, true), Set.of(Mode.ON_DISK)),
+    x32(4, "32x", new RescoreContext(4.0f, false, true), Set.of(Mode.ON_DISK)),
+    x64(4, "64x", new RescoreContext(5.0f, false, true), Set.of(Mode.ON_DISK));
 
     public static final CompressionLevel MAX_COMPRESSION_LEVEL = CompressionLevel.x64;
 
@@ -114,17 +114,17 @@ public enum CompressionLevel {
                 // For index created before 3.1, context was always null and mode is empty
                 return null;
             }
-            // Adjust RescoreContext based on dimension
-            if (dimension <= RescoreContext.DIMENSION_THRESHOLD) {
-                // For dimensions <= 1000, return a RescoreContext with 5.0f oversample factor
-                return RescoreContext.builder()
-                    .oversampleFactor(RescoreContext.OVERSAMPLE_FACTOR_BELOW_DIMENSION_THRESHOLD)
-                    .userProvided(false)
-                    .build();
-            }
+            // // Adjust RescoreContext based on dimension
+            // if (dimension <= RescoreContext.DIMENSION_THRESHOLD) {
+            // // For dimensions <= 1000, return a RescoreContext with 5.0f oversample factor
+            // return RescoreContext.builder()
+            // .oversampleFactor(RescoreContext.OVERSAMPLE_FACTOR_BELOW_DIMENSION_THRESHOLD)
+            // .userProvided(false)
+            // .build();
+            // }
             return defaultRescoreContext;
         }
-        return null;
+        return defaultRescoreContext;
     }
 
     @VisibleForTesting
