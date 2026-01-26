@@ -95,10 +95,20 @@ public class DefaultKNNWeight extends KNNWeight {
             throw new RuntimeException(e);
         }
 
+
         // From cardinality select different filterIds type
         FilterIdsSelector filterIdsSelector = FilterIdsSelector.getFilterIdSelector(filterIdsBitSet, cardinality);
         long[] filterIds = filterIdsSelector.getFilterIds();
         FilterIdsSelector.FilterIdsSelectorType filterType = filterIdsSelector.getFilterType();
+
+        if (filterType == FilterIdsSelector.FilterIdsSelectorType.BITMAP){
+            // convert to batch
+            final int[] ints = bitSetToIntArray(filterIdsBitSet);
+            // convert to filterIds
+            for(int i = 0; i < ints.length; i++ ){
+                filterIds[i] = ints[i];
+            }
+        }
         // Now that we have the allocation, we need to readLock it
         indexAllocation.readLock();
         try {
@@ -124,7 +134,7 @@ public class DefaultKNNWeight extends KNNWeight {
                         k,
                         knnQuery.getMethodParameters(),
                         knnEngine,
-                        filterIds,
+                        filterIdsSelector.getFilterIds(),
                         filterType.getValue(),
                         parentIds
                     );
@@ -149,7 +159,7 @@ public class DefaultKNNWeight extends KNNWeight {
                     knnEngine,
                     knnQuery.getContext().getMaxResultWindow(),
                     filterIds,
-                    filterType.getValue(),
+                    FilterIdsSelector.FilterIdsSelectorType.BATCH.getValue(),
                     parentIds
                 );
             }

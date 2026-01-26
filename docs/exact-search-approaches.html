@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Exact Search for Quantized Vectors in FAISS</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; max-width: 900px; margin: 40px auto; padding: 0 20px; }
+        h1 { color: #1a1a1a; border-bottom: 2px solid #e0e0e0; padding-bottom: 10px; }
+        h2 { color: #2c3e50; margin-top: 30px; }
+        h3 { color: #34495e; }
+        code { background: #f4f4f4; padding: 2px 6px; border-radius: 3px; font-family: 'Monaco', 'Courier New', monospace; }
+        pre { background: #f8f8f8; padding: 15px; border-radius: 5px; overflow-x: auto; border-left: 3px solid #3498db; }
+        table { border-collapse: collapse; width: 100%; margin: 20px 0; }
+        th, td { border: 1px solid #ddd; padding: 12px; text-align: left; }
+        th { background: #3498db; color: white; }
+        tr:nth-child(even) { background: #f9f9f9; }
+        .pros { color: #27ae60; }
+        .cons { color: #e74c3c; }
+        .recommended { background: #d4edda; padding: 10px; border-left: 4px solid #28a745; margin: 10px 0; }
+        .not-recommended { background: #f8d7da; padding: 10px; border-left: 4px solid #dc3545; margin: 10px 0; }
+    </style>
+</head>
+<body>
+    <h1>Exact Search for Quantized Vectors in FAISS</h1>
+    
+    <h2>Overview</h2>
+    <p>This document compares three approaches for implementing exact (exhaustive) search on quantized binary vectors using FAISS in OpenSearch k-NN.</p>
+    
+    <hr>
+    
+    <h2>Approach 1: Bypass HNSW Graph - Direct Storage Search</h2>
+    
+    <h3>Description</h3>
+    <p>Bypass the HNSW graph layer and search directly on the underlying <code>IndexBinaryFlat</code> storage to perform brute-force exact search.</p>
+    
+    <h3>Implementation</h3>
+    <pre><code>auto hnswReader = dynamic_cast&lt;const faiss::IndexBinaryHNSW*&gt;(indexReader-&gt;index);
+auto storage = dynamic_cast&lt;const faiss::IndexBinaryFlat*&gt;(hnswReader-&gt;storage);
+storage-&gt;search(1, queryVector, k, distances, ids, nullptr);
+// Manual ID mapping: customId = indexReader-&gt;id_map[internalId]</code></pre>
+    
+    <h3>Pros</h3>
+    <ul class="pros">
+        <li>✅ True exhaustive search (100% recall)</li>
+        <li>✅ Simple concept - direct brute-force</li>
+        <li>✅ No HNSW graph overhead</li>
+    </ul>
+    
+    <h3>Cons</h3>
+    <ul class="cons">
+        <li>❌ <strong>No filter support</strong> - IndexBinaryFlat::search() ignores sel parameter</li>
+        <li>❌ <strong>Manual ID mapping required</strong> - returns internal IDs, must map to custom IDs</li>
+        <li>❌ <strong>Manual filtering</strong> - must post-filter and re-sort results</li>
+        <li>❌ <strong>Poor performance</strong> - O(n) for every query</li>
+        <li>❌ <strong>Breaks abstraction</strong> - bypasses IDMap wrapper</li>
+        <li>❌ <strong>No deleted vector handling</strong> - storage doesn't track deletions</li>
+    </ul>
+    
+    <h3>Complexity</h3>
+    <ul>
+        <li>Time: O(n × d/8) per query (n = vectors, d = dimensions)</li>
+        <li>Space: O(k) for results</li>
+    </ul>
+    
+    <div class="not-recommended">
+        <h3>Recommendation</h3>
+        <p><strong>❌ Not Recommended</strong> - Too many manual workarounds, defeats purpose of using FAISS abstractions.</p>
+    </div>
+    
+    <hr>
+    
+    <h2>Approach 2: JNI Layer Exact Search Function</h2>
+    
+    <h3>Description</h3>
+    <p>Implement a dedicated exact search function in the JNI layer that manually computes distances for all vectors.</p>
+    
+    <h3>Implementation</h3>
+    <pre><code>jobjectArray ExactSearchBinary(JNIEnv* env, jlong indexPtr, jbyteArray query, jint k) {
+    auto* indexReader = reinterpret_cast&lt;faiss::IndexBinaryIDMap*&gt;(indexPtr);
+    auto* storage = getStorage(indexReader);
+    
+    std::vector&lt;std::pair&lt;int32_t, faiss::idx_t&gt;&gt; results;
+    for(size_t i = 0; i &lt; storage-&gt;ntotal; i++) {
+        int32_t dist = faiss::hamming(queryVec, storage-&gt;xb.data() + i * (d/8), d/8);
+        results.push_back({dist, indexReader-&gt;id_map[i]});
+    }
+    std::partial_sort(results.begin(), results.begin() + k, results.end());
+    return convertToJavaResults(results, k);
+}</code></pre>
+    
+    <h3>Pros</h3>
+    <ul class="pros">
+        <li>✅ Full control over search logic</li>
+        <li>✅ Proper ID mapping built-in</li>
+        <li>✅ Can implement custom filtering efficiently</li>
+        <li>✅ Single JNI call - minimal overhead</li>
+        <li>✅ Reuses FAISS distance functions</li>
+    </ul>
+    
+    <h3>Cons</h3>
+    <ul class="cons">
+        <li>❌ More code to maintain in JNI layer</li>
+        <li>❌ Still O(n) performance</li>
+        <li>❌ Requires C++ expertise</li>
+        <li>❌ Must handle memory management carefully</li>
+    </ul>
+    
+    <h3>Complexity</h3>
+    <ul>
+        <li>Time: O(n × d/8 + n log k) per query</li>
+        <li>Space: O(n) temporary storage for all distances</li>
+    </ul>
+    
+    <div class="recommended">
+        <h3>Recommendation</h3>
+        <p><strong>✅ Recommended</strong> - Best balance of control, performance, and maintainability.</p>
+    </div>
+    
+    <hr>
+    
+    <h2>Approach 3: Java Layer with FAISS Distance Function</h2>
+    
+    <h3>Description</h3>
+    <p>Implement exact search in Java, but use JNI calls to FAISS's hamming() function for distance computation.</p>
+    
+    <h3>Implementation</h3>
+    <pre><code>public KNNQueryResult[] exactSearch(byte[] query, int k, long indexPtr) {
+    PriorityQueue&lt;Result&gt; heap = new PriorityQueue&lt;&gt;(k);
+    
+    for(int docId : allDocIds) {
+        byte[] vector = getVector(indexPtr, docId);
+        int distance = JNIFacade.calculateHammingDistance(query, vector);
+        heap.offer(new Result(docId, distance));
+        if(heap.size() &gt; k) heap.poll();
+    }
+    return heap.toArray();
+}
+
+// JNI method
+native int calculateHammingDistance(byte[] vec1, byte[] vec2);</code></pre>
+    
+    <h3>Pros</h3>
+    <ul class="pros">
+        <li>✅ Easy to implement and test</li>
+        <li>✅ Flexible - easy to add filtering, pagination</li>
+        <li>✅ No C++ expertise needed</li>
+        <li>✅ Leverages FAISS optimized distance computation</li>
+    </ul>
+    
+    <h3>Cons</h3>
+    <ul class="cons">
+        <li>❌ <strong>Multiple JNI calls</strong> - one per vector (huge overhead)</li>
+        <li>❌ <strong>Memory copying</strong> - vectors copied between Java/native</li>
+        <li>❌ <strong>Slowest approach</strong> - JNI overhead dominates</li>
+        <li>❌ <strong>GC pressure</strong> - creates many temporary objects</li>
+        <li>❌ Must retrieve all vectors from index</li>
+    </ul>
+    
+    <h3>Complexity</h3>
+    <ul>
+        <li>Time: O(n × (JNI_overhead + d/8)) per query</li>
+        <li>Space: O(n × d/8) if vectors cached in Java</li>
+    </ul>
+    
+    <div class="not-recommended">
+        <h3>Recommendation</h3>
+        <p><strong>❌ Not Recommended</strong> - JNI overhead makes this prohibitively slow for large datasets.</p>
+    </div>
+    
+    <hr>
+    
+    <h2>Comparison Matrix</h2>
+    
+    <table>
+        <tr>
+            <th>Aspect</th>
+            <th>Approach 1</th>
+            <th>Approach 2</th>
+            <th>Approach 3</th>
+        </tr>
+        <tr>
+            <td><strong>Performance</strong></td>
+            <td>Medium</td>
+            <td>Medium</td>
+            <td>Poor</td>
+        </tr>
+        <tr>
+            <td><strong>Filter Support</strong></td>
+            <td>Manual</td>
+            <td>Native</td>
+            <td>Easy</td>
+        </tr>
+        <tr>
+            <td><strong>ID Mapping</strong></td>
+            <td>Manual</td>
+            <td>Native</td>
+            <td>Native</td>
+        </tr>
+        <tr>
+            <td><strong>JNI Overhead</strong></td>
+            <td>Low</td>
+            <td>Low</td>
+            <td>Very High</td>
+        </tr>
+        <tr>
+            <td><strong>Code Complexity</strong></td>
+            <td>Medium</td>
+            <td>Medium</td>
+            <td>Low</td>
+        </tr>
+        <tr>
+            <td><strong>Maintainability</strong></td>
+            <td>Poor</td>
+            <td>Good</td>
+            <td>Good</td>
+        </tr>
+        <tr>
+            <td><strong>Scalability</strong></td>
+            <td>Poor</td>
+            <td>Poor</td>
+            <td>Very Poor</td>
+        </tr>
+    </table>
+    
+    <hr>
+    
+    <h2>Final Recommendation</h2>
+    
+    <div class="recommended">
+        <h3>Use Approach 2: JNI Layer Implementation</h3>
+        
+        <p><strong>Rationale:</strong></p>
+        <ol>
+            <li>Single JNI call minimizes overhead</li>
+            <li>Full control over filtering and ID mapping</li>
+            <li>Reuses FAISS's optimized hamming() function</li>
+            <li>Clean abstraction - hides complexity from Java layer</li>
+            <li>Can optimize with SIMD/vectorization if needed</li>
+        </ol>
+        
+        <p><strong>Alternative:</strong><br>
+        If exact search is rarely needed, consider using HNSW with very high efSearch (e.g., efSearch = ntotal) instead - this provides near-exact results while maintaining proper abstractions.</p>
+    </div>
+    
+    <hr>
+    
+    <h2>Implementation Notes</h2>
+    
+    <h3>Caveats of Direct Storage Access (Approach 1)</h3>
+    <ol>
+        <li><strong>ID Mapping Broken</strong> - Storage returns internal IDs (0, 1, 2, ...), must manually map to custom IDs</li>
+        <li><strong>SearchParameters Ignored</strong> - IndexBinaryFlat::search() ignores sel and grp parameters</li>
+        <li><strong>Manual Filtering Required</strong> - Must post-filter results and re-sort</li>
+        <li><strong>No Deleted Vector Handling</strong> - Storage doesn't track deletions</li>
+        <li><strong>Thread Safety</strong> - Storage not designed for direct concurrent access</li>
+        <li><strong>Metric Type Issues</strong> - Storage may not have correct metric configured</li>
+    </ol>
+    
+    <h3>Best Practices</h3>
+    <ul>
+        <li>Always use indexReader-&gt;search() when possible for proper ID mapping</li>
+        <li>For exact search, prefer Approach 2 (dedicated JNI function)</li>
+        <li>Consider high efSearch as alternative to true exact search</li>
+        <li>Profile performance before implementing exact search</li>
+        <li>Document performance implications for users</li>
+    </ul>
+</body>
+</html>

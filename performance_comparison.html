@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>P99 Latency Comparison</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; background: #f5f5f5; }
+        .container { max-width: 1200px; margin: 0 auto; background: white; padding: 30px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        h1 { text-align: center; color: #333; }
+        .chart-container { margin: 30px 0; }
+        canvas { max-height: 400px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>P99 Latency Performance Comparison</h1>
+        
+        <div class="chart-container">
+            <h2>100K Docs with 1K Filter vs 1K Docs with ALL Filter</h2>
+            <canvas id="comparisonChart"></canvas>
+        </div>
+
+        <div class="chart-container">
+            <h2>All Experiments</h2>
+            <canvas id="allExperimentsChart"></canvas>
+        </div>
+    </div>
+
+    <script>
+        // Chart 1: 100K/1K vs 1K/ALL
+        new Chart(document.getElementById('comparisonChart'), {
+            type: 'line',
+            data: {
+                labels: ['Exp2 (100K/1K)', 'Exp6 (1K/ALL)'],
+                datasets: [{
+                    label: 'P99 Latency (ms)',
+                    data: [21, 17],
+                    borderColor: 'rgb(255, 99, 132)',
+                    backgroundColor: 'rgba(255, 99, 132, 0.2)',
+                    tension: 0.1,
+                    pointRadius: 8,
+                    pointHoverRadius: 10
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    title: {
+                        display: true,
+                        text: 'Comparison: 100K docs with 1K filter (21ms) vs 1K docs with ALL filter (17ms)',
+                        font: { size: 14 }
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        max: 25,
+                        title: { display: true, text: 'P99 Latency (ms)' }
+                    }
+                }
+            }
+        });
+
+        // Chart 2: All experiments
+        new Chart(document.getElementById('allExperimentsChart'), {
+            type: 'line',
+            data: {
+                labels: ['Exp1\n100K/ALL', 'Exp2\n100K/1K', 'Exp3\n100K/10K', 'Exp4\n1M/10K', 'Exp5\n1M/50K', 'Exp6\n1K/ALL', 'Exp7\n10K/ALL'],
+                datasets: [{
+                    label: 'P99 Latency (ms)',
+                    data: [20, 21, 19, 50, 98, 17, 16],
+                    borderColor: 'rgb(75, 192, 192)',
+                    backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                    tension: 0.1,
+                    pointRadius: 6,
+                    pointHoverRadius: 8
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    title: {
+                        display: true,
+                        text: 'All Experiments (Doc Count / Filter Match)',
+                        font: { size: 14 }
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        title: { display: true, text: 'P99 Latency (ms)' }
+                    },
+                    x: {
+                        title: { display: true, text: 'Experiment' }
+                    }
+                }
+            }
+        });
+    </script>
+</body>
+</html>

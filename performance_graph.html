@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>P99 Latency Performance Graph</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; background: #f5f5f5; }
+        .container { max-width: 1000px; margin: 0 auto; background: white; padding: 30px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        h1 { text-align: center; color: #333; }
+        .info { margin: 20px 0; padding: 15px; background: #f9f9f9; border-radius: 4px; }
+        .info table { width: 100%; border-collapse: collapse; }
+        .info th, .info td { padding: 8px; text-align: left; border-bottom: 1px solid #ddd; }
+        .info th { background: #e9e9e9; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>P99 Latency Performance Analysis</h1>
+        
+        <div class="info">
+            <table>
+                <tr>
+                    <th>Setting</th>
+                    <th>Exp1</th>
+                    <th>Exp2</th>
+                    <th>Exp3</th>
+                    <th>Exp4</th>
+                    <th>Exp5</th>
+                    <th>Exp6</th>
+                    <th>Exp7</th>
+                </tr>
+                <tr>
+                    <td><strong>Doc Count</strong></td>
+                    <td>100K</td>
+                    <td>100K</td>
+                    <td>100K</td>
+                    <td>1M</td>
+                    <td>1M</td>
+                    <td>1K</td>
+                    <td>10K</td>
+                </tr>
+                <tr>
+                    <td><strong>Filter Match</strong></td>
+                    <td>ALL</td>
+                    <td>1K</td>
+                    <td>10K</td>
+                    <td>10K</td>
+                    <td>50K</td>
+                    <td>ALL</td>
+                    <td>ALL</td>
+                </tr>
+                <tr>
+                    <td><strong>P99 (ms)</strong></td>
+                    <td>20</td>
+                    <td>21</td>
+                    <td>19</td>
+                    <td>50</td>
+                    <td>98</td>
+                    <td>17</td>
+                    <td>16</td>
+                </tr>
+            </table>
+        </div>
+
+        <canvas id="performanceChart"></canvas>
+    </div>
+
+    <script>
+        const ctx = document.getElementById('performanceChart').getContext('2d');
+        new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: ['Exp1\n100K/ALL', 'Exp2\n100K/1K', 'Exp3\n100K/10K', 'Exp4\n1M/10K', 'Exp5\n1M/50K', 'Exp6\n1K/ALL', 'Exp7\n10K/ALL'],
+                datasets: [{
+                    label: 'P99 Latency (ms)',
+                    data: [20, 21, 19, 50, 98, 17, 16],
+                    borderColor: 'rgb(75, 192, 192)',
+                    backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                    tension: 0.1,
+                    pointRadius: 6,
+                    pointHoverRadius: 8
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    title: {
+                        display: true,
+                        text: 'P99 Latency Across Experiments (Doc Count/Filter Match)',
+                        font: { size: 16 }
+                    },
+                    legend: {
+                        display: true,
+                        position: 'top'
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        title: {
+                            display: true,
+                            text: 'P99 Latency (ms)'
+                        }
+                    },
+                    x: {
+                        title: {
+                            display: true,
+                            text: 'Experiment (Doc Count / Filter Match)'
+                        }
+                    }
+                }
+            }
+        });
+    </script>
+</body>
+</html>

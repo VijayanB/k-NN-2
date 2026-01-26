@@ -672,14 +672,18 @@ jobjectArray knn_jni::faiss_wrapper::QueryIndex_WithFilter(knn_jni::JNIUtilInter
         Setting the omp_set_num_threads to 1 to make sure that no new OMP threads are getting created.
     */
     omp_set_num_threads(1);
+
     // create the filterSearch params if the filterIdsJ is not a null pointer
     if(filterIdsJ != nullptr) {
         jlong *filteredIdsArray = jniUtil->GetLongArrayElements(env, filterIdsJ, nullptr);
         int filterIdsLength = jniUtil->GetJavaLongArrayLength(env, filterIdsJ);
         std::unique_ptr<faiss::IDSelector> idSelector;
+        std::cout << "filterIdsTypeJ is not BITMAP, it is: " << filterIdsTypeJ << std::endl;
         if(filterIdsTypeJ == BITMAP) {
             idSelector.reset(new faiss::IDSelectorJlongBitmap(filterIdsLength, filteredIdsArray));
         } else {
+            // print inside batch
+           std::cout << "filterIdsTypeJ is not BITMAP, it is: " << filterIdsTypeJ << std::endl;
             faiss::idx_t* batchIndices = reinterpret_cast<faiss::idx_t*>(filteredIdsArray);
             idSelector.reset(new faiss::IDSelectorBatch(filterIdsLength, batchIndices));
         }
@@ -815,8 +819,12 @@ jobjectArray knn_jni::faiss_wrapper::QueryBinaryIndex_WithFilter(knn_jni::JNIUti
         std::vector<uint64_t> idGrouperBitmap;
         auto hnswReader = dynamic_cast<const faiss::IndexBinaryHNSW*>(indexReader->index);
         if(hnswReader) {
-            // Query param efsearch supersedes ef_search provided during index setting.
             hnswParams.efSearch = knn_jni::commons::getIntegerMethodParameter(env, jniUtil, methodParams, EF_SEARCH, hnswReader->hnsw.efSearch);
+            // Create IDSelectorTranslated to translate custom ID bitmap to internal IDs
+            if(filterIdsTypeJ == BITMAP) {
+                faiss::IDSelectorJlongBitmap customIdSelector(filterIdsLength, filteredIdsArray);
+                idSelector.reset(new faiss::IDSelectorTranslated(indexReader->id_map, &customIdSelector));
+            }
             hnswParams.sel = idSelector.get();
             if (parentIdsJ != nullptr) {
                 idGrouper = buildIDGrouperBitmap(jniUtil, env, parentIdsJ, &idGrouperBitmap);
@@ -831,7 +839,21 @@ jobjectArray knn_jni::faiss_wrapper::QueryBinaryIndex_WithFilter(knn_jni::JNIUti
             }
         }
         try {
-            indexReader->search(1, reinterpret_cast<uint8_t*>(rawQueryvector), kJ, dis.data(), ids.data(), searchParameters);
+            auto hnswReader = dynamic_cast<const faiss::IndexBinaryHNSW*>(indexReader->index);
+            auto hnswBinaryFlatReader = dynamic_cast<const faiss::IndexBinaryFlat*>(hnswReader->storage);
+            // print i am inside
+            std::cout << "filterIdsTypeJ is BITMAP" << std::endl;
+            hnswBinaryFlatReader->search(1, reinterpret_cast<uint8_t*>(rawQueryvector), kJ, dis.data(), ids.data(), searchParameters);
+
+            if (filterIdsTypeJ == BATCH) {
+              std::cout << "filterIdsTypeJ is BITMAP" << filterIdsTypeJ << " "<< std::endl;
+                faiss::idx_t* batchIndices = reinterpret_cast<faiss::idx_t*>(filteredIdsArray);
+             //    hnswBinaryFlatReader->search(1, reinterpret_cast<uint8_t*>(rawQueryvector), kJ, dis.data(), ids.data(), searchParameters);
+              hnswBinaryFlatReader->exact_search_with_ids(1, reinterpret_cast<uint8_t*>(rawQueryvector), kJ, dis.data(), ids.data(), batchIndices, filterIdsLength);
+            } else {
+                std::cout << "filterIdsTypeJ is BITMAP" << std::endl;
+                hnswBinaryFlatReader->search(1, reinterpret_cast<uint8_t*>(rawQueryvector), kJ, dis.data(), ids.data(), searchParameters);
+            }
         } catch (...) {
             jniUtil->ReleaseByteArrayElements(env, queryVectorJ, rawQueryvector, JNI_ABORT);
             jniUtil->ReleaseLongArrayElements(env, filterIdsJ, filteredIdsArray, JNI_ABORT);
@@ -865,8 +887,10 @@ jobjectArray knn_jni::faiss_wrapper::QueryBinaryIndex_WithFilter(knn_jni::JNIUti
         }
 
         try {
-            indexReader->search(1, reinterpret_cast<uint8_t*>(rawQueryvector), kJ, dis.data(), ids.data(), searchParameters);
-        } catch (...) {
+            auto hnswReader = dynamic_cast<const faiss::IndexBinaryHNSW*>(indexReader->index);
+                       auto hnswBinaryFlatReader = dynamic_cast<const faiss::IndexBinaryFlat*>(hnswReader->storage);
+                       hnswBinaryFlatReader->search(1, reinterpret_cast<uint8_t*>(rawQueryvector), kJ, dis.data(), ids.data(), searchParameters);
+                      } catch (...) {
             jniUtil->ReleaseByteArrayElements(env, queryVectorJ, rawQueryvector, JNI_ABORT);
             throw;
         }
@@ -887,12 +911,120 @@ jobjectArray knn_jni::faiss_wrapper::QueryBinaryIndex_WithFilter(knn_jni::JNIUti
     jobjectArray results = jniUtil->NewObjectArray(env, resultSize, resultClass, nullptr);
 
     for(int i = 0; i < resultSize; ++i) {
-        jobject result = jniUtil->NewObject(env, resultClass, allArgs, ids[i], dis[i]);
+        // Map internal ID to custom ID
+        // print interal id and custom id
+       // std::cout << "Internal ID: " << ids[i] << ", Custom ID: " << indexReader->id_map[ids[i]] << std::endl;
+        faiss::idx_t finalId = indexReader->id_map[ids[i]];
+        jobject result = jniUtil->NewObject(env, resultClass, allArgs, finalId, dis[i]);
         jniUtil->SetObjectArrayElement(env, results, i, result);
         env->DeleteLocalRef(result);
     }
+
+// Make sure indexReader is properly cast to the correct type
+//auto *indexReader = reinterpret_cast<faiss::IndexBinaryIDMap *>(indexPointerJ);
+
+// Then access id_map
+//std::cout << "ID Map (size: " << indexReader->id_map.size() << "):" << std::endl;
+//for (size_t i = 0; i < indexReader->id_map.size(); i++) {
+//    std::cout << "custom_id[" << indexReader->id_map[i] << "] -> internal_id[" << i << "]" << std::endl;
+//}
+
     return results;
 }
+
+//jobjectArray knn_jni::faiss_wrapper::QueryIndex_WithFilter_ExactSearch(knn_jni::JNIUtilInterface * jniUtil, JNIEnv * env, jlong indexPointerJ,
+//                                                jfloatArray queryVectorJ, jint kJ, jobject methodParamsJ, jlongArray filterIdsJ, jint filterIdsTypeJ, jintArray parentIdsJ) {
+//
+//    if (queryVectorJ == nullptr) {
+//        throw std::runtime_error("Query Vector cannot be null");
+//    }
+//
+//    auto *indexReader = reinterpret_cast<faiss::IndexIDMap *>(indexPointerJ);
+//
+//    if (indexReader == nullptr) {
+//        throw std::runtime_error("Invalid pointer to index");
+//    }
+//    // The ids vector will hold the top k ids from the search and the dis vector will hold the top k distances from
+//    // the query point
+//    std::vector<float> dis(kJ);
+//    std::vector<faiss::idx_t> ids(kJ);
+//    float* rawQueryvector = jniUtil->GetFloatArrayElements(env, queryVectorJ, nullptr);
+//    /*
+//        Setting the omp_set_num_threads to 1 to make sure that no new OMP threads are getting created.
+//    */
+//    omp_set_num_threads(1);
+//    // create the filterSearch params if the filterIdsJ is not a null pointer
+////    if(filterIdsJ != nullptr) {
+////        jlong *filteredIdsArray = jniUtil->GetLongArrayElements(env, filterIdsJ, nullptr);
+////        int filterIdsLength = jniUtil->GetJavaLongArrayLength(env, filterIdsJ);
+////        std::unique_ptr<faiss::IDSelector> idSelector;
+////        if(filterIdsTypeJ == BITMAP) {
+////            idSelector.reset(new faiss::IDSelectorJlongBitmap(filterIdsLength, filteredIdsArray));
+////        } else {
+////            faiss::idx_t* batchIndices = reinterpret_cast<faiss::idx_t*>(filteredIdsArray);
+////            idSelector.reset(new faiss::IDSelectorBatch(filterIdsLength, batchIndices));
+////        }
+////        faiss::SearchParameters searchParameters;
+////        std::unique_ptr<faiss::IDGrouperBitmap> idGrouper;
+////        std::vector<uint64_t> idGrouperBitmap;
+////        auto hnswReader = dynamic_cast<const faiss::IndexHNSW*>(indexReader->index);
+////        auto hnswBinaryFlatReader = dynamic_cast<const faiss::IndexBinaryFlat*>(hnswReader->storage);
+////        searchParameters.sel = idSelector.get();
+////            if (parentIdsJ != nullptr) {
+////                idGrouper = buildIDGrouperBitmap(jniUtil, env, parentIdsJ, &idGrouperBitmap);
+////                searchParameters.grp = idGrouper.get();
+////            }
+////        try {
+////        // Search all vectors
+////            hnswBinaryFlatReader->search(1, reinterpret_cast<uint8_t*>(rawQueryvector), kJ, dis.data(), ids.data(), &searchParameters);
+////        } catch (...) {
+////            jniUtil->ReleaseFloatArrayElements(env, queryVectorJ, rawQueryvector, JNI_ABORT);
+////            jniUtil->ReleaseLongArrayElements(env, filterIdsJ, filteredIdsArray, JNI_ABORT);
+////            throw;
+////        }
+////        jniUtil->ReleaseLongArrayElements(env, filterIdsJ, filteredIdsArray, JNI_ABORT);
+////    } else {
+//        faiss::SearchParameters searchParameters;
+//        std::unique_ptr<faiss::IDGrouperBitmap> idGrouper;
+//        std::vector<uint64_t> idGrouperBitmap;
+//        auto hnswReader = dynamic_cast<const faiss::IndexHNSW*>(indexReader->index);
+//        auto hnswBinaryFlatReader = dynamic_cast<const faiss::IndexBinaryFlat*>(hnswReader->storage);
+//        if (parentIdsJ != nullptr) {
+//            idGrouper = buildIDGrouperBitmap(jniUtil, env, parentIdsJ, &idGrouperBitmap);
+//            searchParameters.grp = idGrouper.get();
+//        }
+//        try {
+//            hnswBinaryFlatReader->search(1, reinterpret_cast<uint8_t*>(rawQueryvector), kJ, dis.data(), ids.data(), &searchParameters);
+//        } catch (...) {
+//            jniUtil->ReleaseFloatArrayElements(env, queryVectorJ, rawQueryvector, JNI_ABORT);
+//            throw;
+//        }
+//   // }
+//    jniUtil->ReleaseFloatArrayElements(env, queryVectorJ, rawQueryvector, JNI_ABORT);
+//
+//    // If there are not k results, the results will be padded with -1. Find the first -1, and set result size to that
+//    // index
+//    int resultSize = kJ;
+//    auto it = std::find(ids.begin(), ids.end(), -1);
+//    if (it != ids.end()) {
+//        resultSize = it - ids.begin();
+//    }
+//
+//    jclass resultClass = jniUtil->FindClass(env,"org/opensearch/knn/index/query/KNNQueryResult");
+//    jmethodID allArgs = jniUtil->FindMethod(env, "org/opensearch/knn/index/query/KNNQueryResult", "<init>");
+//
+//    jobjectArray results = jniUtil->NewObjectArray(env, resultSize, resultClass, nullptr);
+//
+//    for(int i = 0; i < resultSize; ++i) {
+//        // Map internal ID to custom ID
+//        faiss::idx_t finalId = indexReader->id_map[ids[i]];
+//        jobject result = jniUtil->NewObject(env, resultClass, allArgs, finalId, dis[i]);
+//        jniUtil->SetObjectArrayElement(env, results, i, result);
+//        env->DeleteLocalRef(result);
+//    }
+//    return results;
+//}
+
 
 void knn_jni::faiss_wrapper::Free(jlong indexPointer, jboolean isBinaryIndexJ) {
     bool isBinaryIndex = static_cast<bool>(isBinaryIndexJ);
@@ -1337,4 +1469,170 @@ jobjectArray knn_jni::faiss_wrapper::RangeSearchWithFilter(knn_jni::JNIUtilInter
     }
 
     return results;
+}
+
+//jint knn_jni::faiss_wrapper::CalculateHammingDistance(knn_jni::JNIUtilInterface * jniUtil, JNIEnv * env, jbyteArray vector1J, jbyteArray vector2J, jint dimensionJ) {
+//    if (vector1J == nullptr || vector2J == nullptr) {
+//        throw std::runtime_error("Vectors cannot be null");
+//    }
+//
+//    int dim = (int)dimensionJ;
+//    if (dim % 8 != 0) {
+//        throw std::runtime_error("Dimension must be multiple of 8");
+//    }
+//
+//    int8_t* vec1 = jniUtil->GetByteArrayElements(env, vector1J, nullptr);
+//    int8_t* vec2 = jniUtil->GetByteArrayElements(env, vector2J, nullptr);
+//
+//    int distance = faiss::hamming(reinterpret_cast<uint8_t*>(vec1), reinterpret_cast<uint8_t*>(vec2), dim / 8);
+//
+//    jniUtil->ReleaseByteArrayElements(env, vector1J, vec1, JNI_ABORT);
+//    jniUtil->ReleaseByteArrayElements(env, vector2J, vec2, JNI_ABORT);
+//
+//    return (jint)distance;
+//}
+//
+//jintArray knn_jni::faiss_wrapper::CalculateDistancesForIds(knn_jni::JNIUtilInterface * jniUtil, JNIEnv * env, jlong indexPointerJ, jbyteArray queryVectorJ, jintArray idsJ, jint dimensionJ) {
+//    if (queryVectorJ == nullptr || idsJ == nullptr) {
+//        throw std::runtime_error("Query vector and IDs cannot be null");
+//    }
+//
+//    auto *indexReader = reinterpret_cast<faiss::IndexBinaryIDMap *>(indexPointerJ);
+//    if (indexReader == nullptr) {
+//        throw std::runtime_error("Invalid pointer to index");
+//    }
+//
+//    auto hnswReader = dynamic_cast<const faiss::IndexBinaryHNSW*>(indexReader->index);
+//    if (!hnswReader || !hnswReader->storage) {
+//        throw std::runtime_error("Index does not support distance calculation or missing storage");
+//    }
+//
+//    auto storage = dynamic_cast<const faiss::IndexBinaryFlat*>(hnswReader->storage);
+//    if (!storage) {
+//        throw std::runtime_error("Storage is not IndexBinaryFlat");
+//    }
+//
+//    int dim = (int)dimensionJ;
+//    if (dim % 8 != 0) {
+//        throw std::runtime_error("Dimension must be multiple of 8");
+//    }
+//
+//    int8_t* queryVec = jniUtil->GetByteArrayElements(env, queryVectorJ, nullptr);
+//    int* ids = jniUtil->GetIntArrayElements(env, idsJ, nullptr);
+//    int numIds = jniUtil->GetJavaIntArrayLength(env, idsJ);
+//
+//    jintArray distancesJ = jniUtil->NewIntArray(env, numIds);
+//    int* distances = jniUtil->GetIntArrayElements(env, distancesJ, nullptr);
+//
+//    for (int i = 0; i < numIds; i++) {
+//        int internalId = -1;
+//        for (size_t j = 0; j < indexReader->id_map.size(); j++) {
+//            if (indexReader->id_map[j] == ids[i]) {
+//                internalId = j;
+//                break;
+//            }
+//        }
+//
+//        if (internalId >= 0 && internalId < storage->ntotal) {
+//            const uint8_t* storedVec = storage->xb.data() + internalId * (dim / 8);
+//            distances[i] = faiss::hamming(reinterpret_cast<uint8_t*>(queryVec), storedVec, dim / 8);
+//        } else {
+//            distances[i] = -1;
+//        }
+//    }
+//
+//    jniUtil->ReleaseByteArrayElements(env, queryVectorJ, queryVec, JNI_ABORT);
+//    jniUtil->ReleaseIntArrayElements(env, idsJ, ids, JNI_ABORT);
+//    jniUtil->SetIntArrayRegion(env, distancesJ, 0, numIds, distances);
+//    jniUtil->ReleaseIntArrayElements(env, distancesJ, distances, 0);
+//
+//    return distancesJ;
+//}
+jobjectArray knn_jni::faiss_wrapper::DirectHammingSearch(knn_jni::JNIUtilInterface * jniUtil, JNIEnv * env, jlong indexPointerJ, jbyteArray queryVectorJ, jint kJ, jintArray customIdsJ) {
+    if (queryVectorJ == nullptr || customIdsJ == nullptr) {
+        throw std::runtime_error("Query vector and custom IDs cannot be null");
+    }
+
+    auto *indexReader = reinterpret_cast<faiss::IndexBinaryIDMap *>(indexPointerJ);
+    if (indexReader == nullptr) {
+        throw std::runtime_error("Invalid pointer to index");
+    }
+
+    auto hnswReader = dynamic_cast<const faiss::IndexBinaryHNSW*>(indexReader->index);
+    if (!hnswReader || !hnswReader->storage) {
+        throw std::runtime_error("Index does not contain IndexBinaryHNSW or missing storage");
+    }
+
+    auto storage = dynamic_cast<const faiss::IndexBinaryFlat*>(hnswReader->storage);
+    if (!storage) {
+        throw std::runtime_error("Storage is not IndexBinaryFlat");
+    }
+
+    int8_t* queryVec = jniUtil->GetByteArrayElements(env, queryVectorJ, nullptr);
+    int* customIds = jniUtil->GetIntArrayElements(env, customIdsJ, nullptr);
+    int numCustomIds = jniUtil->GetJavaIntArrayLength(env, customIdsJ);
+    int dim = storage->d;
+
+    // Build reverse map (customId -> internalId)
+    std::unordered_map<int, int> reverseMap;
+    for (size_t i = 0; i < indexReader->id_map.size(); i++) {
+        reverseMap[indexReader->id_map[i]] = i;
+    }
+
+    // Convert customIds to internalIds
+    std::vector<int> internalIds;
+    for (int i = 0; i < numCustomIds; i++) {
+        auto it = reverseMap.find(customIds[i]);
+        if (it != reverseMap.end()) {
+            internalIds.push_back(it->second);
+        }
+    }
+
+    // Priority queue for top-k results (min-heap)
+    std::priority_queue<std::pair<int, int>> pq; // (distance, internalId)
+
+    // Calculate hamming distances directly
+    for (int internalId : internalIds) {
+        if (internalId >= 0 && internalId < storage->ntotal) {
+            const uint8_t* storedVec = storage->xb.data() + internalId * (dim / 8);
+            int distance = 1;
+            //faiss::hamming(reinterpret_cast<uint8_t*>(queryVec), storedVec, dim / 8);
+
+            if (pq.size() < kJ) {
+                pq.push({distance, internalId});
+            } else if (distance < pq.top().first) {
+                pq.pop();
+                pq.push({distance, internalId});
+            }
+        }
+    }
+
+    // Extract results and convert back to custom IDs
+    int resultSize = pq.size();
+    std::vector<std::pair<int, int>> results;
+    while (!pq.empty()) {
+        auto [distance, internalId] = pq.top();
+        pq.pop();
+        int customId = indexReader->id_map[internalId];
+        results.push_back({customId, distance});
+    }
+
+    // Reverse to get ascending order
+    std::reverse(results.begin(), results.end());
+
+    jniUtil->ReleaseByteArrayElements(env, queryVectorJ, queryVec, JNI_ABORT);
+    jniUtil->ReleaseIntArrayElements(env, customIdsJ, customIds, JNI_ABORT);
+
+    // Create Java result array
+    jclass resultClass = jniUtil->FindClass(env, "org/opensearch/knn/index/query/KNNQueryResult");
+    jmethodID allArgs = jniUtil->FindMethod(env, "org/opensearch/knn/index/query/KNNQueryResult", "<init>");
+    jobjectArray resultsArray = jniUtil->NewObjectArray(env, resultSize, resultClass, nullptr);
+
+    for (int i = 0; i < resultSize; i++) {
+        jobject result = jniUtil->NewObject(env, resultClass, allArgs, results[i].first, results[i].second);
+        jniUtil->SetObjectArrayElement(env, resultsArray, i, result);
+        env->DeleteLocalRef(result);
+    }
+
+    return resultsArray;
 }

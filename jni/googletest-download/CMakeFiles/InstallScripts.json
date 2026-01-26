@@ -1,0 +1,7 @@
+{
+	"InstallScripts" : 
+	[
+		"/Users/balasvij/opensearch/jni/googletest-download/cmake_install.cmake"
+	],
+	"Parallel" : false
+}

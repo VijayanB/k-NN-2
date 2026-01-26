@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Filter vs ALL Comparison</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; background: #f5f5f5; }
+        .container { max-width: 1200px; margin: 0 auto; background: white; padding: 30px; border-radius: 8px; }
+        h1 { text-align: center; color: #333; }
+        .chart-container { margin: 30px 0; }
+        .insight { background: #e3f2fd; padding: 15px; border-radius: 4px; margin: 20px 0; }
+        .insight h3 { margin-top: 0; color: #1976d2; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Filter Impact: Filtered vs ALL (Filter Count = Total Docs)</h1>
+        
+        <div class="insight">
+            <h3>Comparison Scenarios:</h3>
+            <ul>
+                <li><strong>100K Docs:</strong> Exp1 (ALL) vs Exp2 (1K filter) vs Exp3 (10K filter)</li>
+                <li><strong>1K Docs:</strong> Exp6 (ALL) - baseline</li>
+                <li><strong>10K Docs:</strong> Exp7 (ALL) - baseline</li>
+            </ul>
+        </div>
+
+        <div class="chart-container">
+            <canvas id="filterComparisonChart"></canvas>
+        </div>
+
+        <div class="insight">
+            <h3>Key Findings:</h3>
+            <ul>
+                <li><strong>100K/ALL (20ms) vs 100K/1K (21ms):</strong> Only 1ms overhead with filtering</li>
+                <li><strong>100K/ALL (20ms) vs 100K/10K (19ms):</strong> 10K filter is actually 1ms faster!</li>
+                <li><strong>Filtering overhead is negligible</strong> when filter count is small relative to total docs</li>
+                <li><strong>Smaller doc sets (1K, 10K) with ALL filter are fastest:</strong> 16-17ms</li>
+            </ul>
+        </div>
+    </div>
+
+    <script>
+        new Chart(document.getElementById('filterComparisonChart'), {
+            type: 'bar',
+            data: {
+                labels: ['1K/ALL\n(Exp6)', '10K/ALL\n(Exp7)', '100K/ALL\n(Exp1)', '100K/1K\n(Exp2)', '100K/10K\n(Exp3)'],
+                datasets: [{
+                    label: 'ALL Filter (Filter = Total Docs)',
+                    data: [17, 16, 20, null, null],
+                    backgroundColor: 'rgba(75, 192, 192, 0.6)',
+                    borderColor: 'rgb(75, 192, 192)',
+                    borderWidth: 2
+                }, {
+                    label: 'Filtered (Filter < Total Docs)',
+                    data: [null, null, null, 21, 19],
+                    backgroundColor: 'rgba(255, 159, 64, 0.6)',
+                    borderColor: 'rgb(255, 159, 64)',
+                    borderWidth: 2
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    title: {
+                        display: true,
+                        text: 'P99 Latency: ALL Filter vs Filtered Scenarios',
+                        font: { size: 16 }
+                    },
+                    legend: {
+                        display: true,
+                        position: 'top'
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        title: { display: true, text: 'P99 Latency (ms)' }
+                    },
+                    x: {
+                        title: { display: true, text: 'Experiment (Total Docs / Filter Match)' }
+                    }
+                }
+            }
+        });
+    </script>
+</body>
+</html>

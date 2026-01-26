@@ -1,0 +1,19 @@
+{
+	"InstallScripts" : 
+	[
+		"/Users/balasvij/opensearch/jni/cmake_install.cmake",
+		"/Users/balasvij/opensearch/jni/external/nmslib/similarity_search/cmake_install.cmake",
+		"/Users/balasvij/opensearch/jni/external/nmslib/similarity_search/src/cmake_install.cmake",
+		"/Users/balasvij/opensearch/jni/external/nmslib/similarity_search/apps/cmake_install.cmake",
+		"/Users/balasvij/opensearch/jni/external/nmslib/similarity_search/test/cmake_install.cmake",
+		"/Users/balasvij/opensearch/jni/external/faiss/cmake_install.cmake",
+		"/Users/balasvij/opensearch/jni/external/faiss/faiss/cmake_install.cmake",
+		"/Users/balasvij/opensearch/jni/external/faiss/demos/cmake_install.cmake",
+		"/Users/balasvij/opensearch/jni/external/faiss/benchs/cmake_install.cmake",
+		"/Users/balasvij/opensearch/jni/external/faiss/tutorial/cpp/cmake_install.cmake",
+		"/Users/balasvij/opensearch/jni/googletest-build/cmake_install.cmake",
+		"/Users/balasvij/opensearch/jni/googletest-build/googlemock/cmake_install.cmake",
+		"/Users/balasvij/opensearch/jni/googletest-build/googletest/cmake_install.cmake"
+	],
+	"Parallel" : false
+}

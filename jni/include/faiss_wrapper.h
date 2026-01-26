@@ -187,6 +187,15 @@ namespace knn_jni {
          * @throws std::runtime_error if the space type is invalid
          */
         faiss::MetricType TranslateSpaceToMetric(const std::string& spaceType);
+
+        // Calculate Hamming distance between two binary vectors
+        jint CalculateHammingDistance(knn_jni::JNIUtilInterface * jniUtil, JNIEnv * env, jbyteArray vector1J, jbyteArray vector2J, jint dimensionJ);
+
+        // Calculate distances for specific IDs from IndexBinaryFlat and return top K
+        jobjectArray CalculateDistancesForIds(knn_jni::JNIUtilInterface * jniUtil, JNIEnv * env, jlong indexPointerJ, jbyteArray queryVectorJ, jintArray idsJ, jint dimensionJ, jint kJ);
+
+        // Direct hamming search with custom ID filtering - Approach 3
+        jobjectArray DirectHammingSearch(knn_jni::JNIUtilInterface * jniUtil, JNIEnv * env, jlong indexPointerJ, jbyteArray queryVectorJ, jint kJ, jintArray customIdsJ);
     }
 }
 
