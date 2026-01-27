@@ -41,6 +41,7 @@ import org.opensearch.knn.index.memory.NativeMemoryCacheManager;
 import org.opensearch.knn.index.quantizationservice.QuantizationService;
 import org.opensearch.knn.memoryoptsearch.VectorSearcher;
 import org.opensearch.knn.memoryoptsearch.VectorSearcherFactory;
+import org.opensearch.knn.memoryoptsearch.faiss.FaissMemoryOptimizedSearcher;
 import org.opensearch.knn.quantization.models.quantizationState.QuantizationState;
 import org.opensearch.knn.quantization.models.quantizationState.QuantizationStateCacheManager;
 import org.opensearch.knn.quantization.models.quantizationState.QuantizationStateReadConfig;
@@ -159,6 +160,11 @@ public class NativeEngines990KnnVectorsReader extends KnnVectorsReader {
                     )
                 );
             ((QuantizationConfigKNNCollector) knnCollector).setQuantizationState(quantizationState);
+            return;
+        }
+        if (knnCollector instanceof VectorValuesKNNCollector collector) {
+            final FaissMemoryOptimizedSearcher memoryOptimizedSearcher = (FaissMemoryOptimizedSearcher) loadMemoryOptimizedSearcherIfRequired(field);
+            collector.setByteVectorValues(memoryOptimizedSearcher.getFaissIndex().getByteValues(memoryOptimizedSearcher.getSlicedIndexInput()));
             return;
         }
         if (trySearchWithMemoryOptimizedSearch(field, target, knnCollector, acceptDocs, true)) {

@@ -5,6 +5,7 @@
 
 package org.opensearch.knn.memoryoptsearch.faiss;
 
+import lombok.Getter;
 import org.apache.lucene.codecs.hnsw.FlatVectorsScorer;
 import org.apache.lucene.index.FieldInfo;
 import org.apache.lucene.index.FloatVectorValues;
@@ -38,7 +39,8 @@ import java.util.concurrent.ThreadLocalRandom;
  */
 public class FaissMemoryOptimizedSearcher implements VectorSearcher {
     private final IndexInput indexInput;
-    private final FaissIndex faissIndex;
+   @Getter
+   private final FaissIndex faissIndex;
     private final FlatVectorsScorer flatVectorsScorer;
     private final FaissHNSW hnsw;
     private final VectorSimilarityFunction vectorSimilarityFunction;
@@ -181,7 +183,7 @@ public class FaissMemoryOptimizedSearcher implements VectorSearcher {
         }
     }
 
-    private IndexInput getSlicedIndexInput() throws IOException {
+    public IndexInput getSlicedIndexInput() throws IOException {
         return indexInput.slice("FaissMemoryOptimizedSearcher", 0, fileSize);
     }
 

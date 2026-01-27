@@ -11,10 +11,13 @@ import lombok.Builder;
 import lombok.NonNull;
 import lombok.Value;
 import lombok.extern.log4j.Log4j2;
+import org.apache.lucene.index.ByteVectorValues;
 import org.apache.lucene.index.FieldInfo;
+import org.apache.lucene.index.FloatVectorValues;
 import org.apache.lucene.index.LeafReaderContext;
 import org.apache.lucene.index.SegmentReader;
 import org.apache.lucene.index.VectorSimilarityFunction;
+import org.apache.lucene.queries.function.valuesource.FloatKnnVectorFieldSource;
 import org.apache.lucene.search.ConjunctionUtils;
 import org.apache.lucene.search.DocIdSetIterator;
 import org.apache.lucene.search.HitQueue;
@@ -28,14 +31,18 @@ import org.opensearch.common.lucene.Lucene;
 import org.opensearch.knn.common.FieldInfoExtractor;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
+import org.opensearch.knn.index.codec.KNN990Codec.QuantizationConfigKNNCollector;
+import org.opensearch.knn.index.codec.KNN990Codec.VectorValuesKNNCollector;
 import org.opensearch.knn.index.query.SegmentLevelQuantizationInfo;
 import org.opensearch.knn.index.query.SegmentLevelQuantizationUtil;
 import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.vectorvalues.ByteVectorValuesAdapter;
 import org.opensearch.knn.index.vectorvalues.KNNBinaryVectorValues;
 import org.opensearch.knn.index.vectorvalues.KNNByteVectorValues;
 import org.opensearch.knn.index.vectorvalues.KNNFloatVectorValues;
 import org.opensearch.knn.index.vectorvalues.KNNVectorValues;
 import org.opensearch.knn.index.vectorvalues.KNNVectorValuesFactory;
+import org.opensearch.knn.index.vectorvalues.KNNVectorValuesIterator;
 import org.opensearch.knn.indices.ModelDao;
 
 import java.io.IOException;
@@ -240,6 +247,22 @@ public class ExactSearcher {
         }
 
         final KNNVectorValues<float[]> vectorValues = KNNVectorValuesFactory.getVectorValues(fieldInfo, reader);
+        
+//        if (quantizedQueryVector != null) {
+//            VectorValuesKNNCollector collector = new VectorValuesKNNCollector();
+//            leafReaderContext.reader().searchNearestVectors(exactSearcherContext.getField(), new float[0], collector, null);
+//            KNNBinaryVectorValues byteVectorValues = ByteVectorValuesAdapter.adapt(collector.getByteVectorValues());
+//            return new OrdinalBinaryVectorIdsExactKNNIterator(
+//                matchedDocs,
+//                exactSearcherContext.getFloatQueryVector(),
+//                (KNNFloatVectorValues) vectorValues,
+//                    byteVectorValues,
+//                spaceType,
+//                quantizedQueryVector,
+//                segmentLevelQuantizationInfo
+//            );
+//        }
+        
         if (isNestedRequired) {
             return new NestedVectorIdsExactKNNIterator(
                 matchedDocs,
@@ -311,5 +334,7 @@ public class ExactSearcher {
         Integer maxResultWindow;
         VectorSimilarityFunction similarityFunction;
         Boolean isMemoryOptimizedSearchEnabled;
+        FloatVectorValues floatVectorValues;
+        ByteVectorValues byteVectorValues;
     }
 }

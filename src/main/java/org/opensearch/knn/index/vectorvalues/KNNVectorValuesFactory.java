@@ -124,6 +124,11 @@ public final class KNNVectorValuesFactory {
         }
     }
 
+
+    public static <T> KNNVectorValues<T> getVectorValues(ByteVectorValues byteVectorValues) throws IOException {
+        return (KNNVectorValues<T>) new KNNByteVectorValues(new KNNVectorValuesIterator.DocIdsIteratorValues(byteVectorValues));
+    }
+
     /**
      * Returns a {@link KNNVectorValues} for the given {@link FieldInfo} and {@link LeafReader}
      *

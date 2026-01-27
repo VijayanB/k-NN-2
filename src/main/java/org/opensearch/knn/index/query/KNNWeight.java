@@ -331,42 +331,44 @@ public abstract class KNNWeight extends Weight {
          * . Hence, if filtered results are less than K and filter query is present we should shift to exact search.
          * This improves the recall.
          */
-        if (isFilteredExactSearchPreferred(filterCardinality)) {
-            final TopDocs result = doExactSearch(context, new BitSetIterator(filterBitSet, filterCardinality), filterCardinality, k);
-            return new PerLeafResult(
-                filterWeight == null ? null : filterBitSet,
-                filterCardinality,
-                result,
-                PerLeafResult.SearchMode.EXACT_SEARCH
-            );
-        }
+//        if (isFilteredExactSearchPreferred(filterCardinality)) {
+//            final TopDocs result = doExactSearch(context, new BitSetIterator(filterBitSet, filterCardinality), filterCardinality, k);
+//            return new PerLeafResult(
+//                filterWeight == null ? null : filterBitSet,
+//                filterCardinality,
+//                result,
+//                PerLeafResult.SearchMode.EXACT_SEARCH
+//            );
+//        }
 
         final StopWatch annStopWatch = startStopWatch(log);
         final TopDocs topDocs = approximateSearch(context, filterBitSet, filterCardinality, k);
         stopStopWatchAndLog(log, annStopWatch, "ANN search", knnQuery.getShardId(), segmentName, knnQuery.getField());
 
-        if (knnQuery.isExplain()) {
-            knnExplanation.addLeafResult(context.id(), topDocs.scoreDocs.length);
-        }
-        // See whether we have to perform exact search based on approx search results
-        // This is required if there are no native engine files or if approximate search returned
-        // results less than K, though we have more than k filtered docs
-        if (isExactSearchRequire(context, filterCardinality, topDocs.scoreDocs.length)) {
-            final BitSetIterator docs = filterWeight != null ? new BitSetIterator(filterBitSet, filterCardinality) : null;
-            final TopDocs result = doExactSearch(context, docs, filterCardinality, k);
-            return new PerLeafResult(
+//        if (knnQuery.isExplain()) {
+//            knnExplanation.addLeafResult(context.id(), topDocs.scoreDocs.length);
+//        }
+//        // See whether we have to perform exact search based on approx search results
+//        // This is required if there are no native engine files or if approximate search returned
+//        // results less than K, though we have more than k filtered docs
+//        if (isExactSearchRequire(context, filterCardinality, topDocs.scoreDocs.length)) {
+//            final BitSetIterator docs = filterWeight != null ? new BitSetIterator(filterBitSet, filterCardinality) : null;
+//            final TopDocs result = doExactSearch(context, docs, filterCardinality, k);
+//            return new PerLeafResult(
+//                filterWeight == null ? null : filterBitSet,
+//                filterCardinality,
+//                result,
+//                PerLeafResult.SearchMode.EXACT_SEARCH
+//            );
+//        }
+
+        final BitSetIterator docs = filterWeight != null ? new BitSetIterator(filterBitSet, filterCardinality) : null;
+        final TopDocs result = doExactSearch(context, docs, filterCardinality, k);
+        return new PerLeafResult(
                 filterWeight == null ? null : filterBitSet,
                 filterCardinality,
                 result,
                 PerLeafResult.SearchMode.EXACT_SEARCH
-            );
-        }
-
-        return new PerLeafResult(
-            filterWeight == null ? null : filterBitSet,
-            filterCardinality,
-            topDocs,
-            PerLeafResult.SearchMode.APPROXIMATE_SEARCH
         );
     }
 

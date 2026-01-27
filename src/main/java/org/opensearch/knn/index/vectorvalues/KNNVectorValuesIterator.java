@@ -54,6 +54,7 @@ public interface KNNVectorValuesIterator {
      */
     DocIdSetIterator getDocIdSetIterator();
 
+
     /**
      * Total number of live doc which will the iterator will iterate upon.
      * @return long: total number of live docs

@@ -167,6 +167,11 @@ public class FaissIdMapIndex extends FaissBinaryIndex implements FaissHNSWProvid
             public ByteVectorValues copy() throws IOException {
                 return new SparseByteVectorValuesImpl(vectorValues.copy());
             }
+
+            @Override
+            public DocIndexIterator iterator() {
+                return vectorValues.iterator();
+            }
         }
 
         return new SparseByteVectorValuesImpl(vectorValues);

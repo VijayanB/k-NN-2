@@ -84,6 +84,11 @@ public class FaissIndexBinaryFlat extends FaissBinaryIndex {
             public ByteVectorValues copy() {
                 return new ByteVectorValuesImpl(indexInput.clone());
             }
+
+            @Override
+            public DocIndexIterator iterator() {
+                return createDenseIterator();
+            }
         }
 
         return new ByteVectorValuesImpl(indexInput);
