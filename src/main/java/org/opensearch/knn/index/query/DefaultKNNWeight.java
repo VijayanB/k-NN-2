@@ -101,14 +101,14 @@ public class DefaultKNNWeight extends KNNWeight {
         long[] filterIds = filterIdsSelector.getFilterIds();
         FilterIdsSelector.FilterIdsSelectorType filterType = filterIdsSelector.getFilterType();
 
-        if (filterType == FilterIdsSelector.FilterIdsSelectorType.BITMAP){
-            // convert to batch
-            final int[] ints = bitSetToIntArray(filterIdsBitSet);
-            // convert to filterIds
-            for(int i = 0; i < ints.length; i++ ){
-                filterIds[i] = ints[i];
-            }
-        }
+//        if (filterType == FilterIdsSelector.FilterIdsSelectorType.BITMAP){
+//            // convert to batch
+//            final int[] ints = bitSetToIntArray(filterIdsBitSet);
+//            // convert to filterIds
+//            for(int i = 0; i < ints.length; i++ ){
+//                filterIds[i] = ints[i];
+//            }
+//        }
         // Now that we have the allocation, we need to readLock it
         indexAllocation.readLock();
         try {

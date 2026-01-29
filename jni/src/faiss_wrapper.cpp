@@ -841,19 +841,16 @@ jobjectArray knn_jni::faiss_wrapper::QueryBinaryIndex_WithFilter(knn_jni::JNIUti
         try {
             auto hnswReader = dynamic_cast<const faiss::IndexBinaryHNSW*>(indexReader->index);
             auto hnswBinaryFlatReader = dynamic_cast<const faiss::IndexBinaryFlat*>(hnswReader->storage);
-            // print i am inside
-            std::cout << "filterIdsTypeJ is BITMAP" << std::endl;
-            hnswBinaryFlatReader->search(1, reinterpret_cast<uint8_t*>(rawQueryvector), kJ, dis.data(), ids.data(), searchParameters);
+           hnswBinaryFlatReader->search(1, reinterpret_cast<uint8_t*>(rawQueryvector), kJ, dis.data(), ids.data(), searchParameters);
 
-            if (filterIdsTypeJ == BATCH) {
-              std::cout << "filterIdsTypeJ is BITMAP" << filterIdsTypeJ << " "<< std::endl;
-                faiss::idx_t* batchIndices = reinterpret_cast<faiss::idx_t*>(filteredIdsArray);
-             //    hnswBinaryFlatReader->search(1, reinterpret_cast<uint8_t*>(rawQueryvector), kJ, dis.data(), ids.data(), searchParameters);
-              hnswBinaryFlatReader->exact_search_with_ids(1, reinterpret_cast<uint8_t*>(rawQueryvector), kJ, dis.data(), ids.data(), batchIndices, filterIdsLength);
-            } else {
-                std::cout << "filterIdsTypeJ is BITMAP" << std::endl;
-                hnswBinaryFlatReader->search(1, reinterpret_cast<uint8_t*>(rawQueryvector), kJ, dis.data(), ids.data(), searchParameters);
-            }
+//            if (filterIdsTypeJ == BATCH) {
+//                faiss::idx_t* batchIndices = reinterpret_cast<faiss::idx_t*>(filteredIdsArray);
+//              hnswBinaryFlatReader->search(1, reinterpret_cast<uint8_t*>(rawQueryvector), kJ, dis.data(), ids.data(), searchParameters);
+//             // hnswBinaryFlatReader->exact_search_with_ids(1, reinterpret_cast<uint8_t*>(rawQueryvector), kJ, dis.data(), ids.data(), batchIndices, filterIdsLength);
+//            } else {
+//                std::cout << "filterIdsTypeJ is BITMAP" << std::endl;
+//                hnswBinaryFlatReader->search(1, reinterpret_cast<uint8_t*>(rawQueryvector), kJ, dis.data(), ids.data(), searchParameters);
+//            }
         } catch (...) {
             jniUtil->ReleaseByteArrayElements(env, queryVectorJ, rawQueryvector, JNI_ABORT);
             jniUtil->ReleaseLongArrayElements(env, filterIdsJ, filteredIdsArray, JNI_ABORT);

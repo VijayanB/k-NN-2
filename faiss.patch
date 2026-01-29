@@ -1,0 +1,361 @@
+diff --git a/faiss/IndexBinaryFlat.cpp b/faiss/IndexBinaryFlat.cpp
+index ec47b16a9..4871e0501 100644
+--- a/faiss/IndexBinaryFlat.cpp
++++ b/faiss/IndexBinaryFlat.cpp
+@@ -15,6 +15,7 @@
+ #include <faiss/utils/Heap.h>
+ #include <faiss/utils/hamming.h>
+ #include <cstring>
++#include <iostream>
+ 
+ namespace faiss {
+ 
+@@ -53,6 +54,7 @@ void IndexBinaryFlat::search(
+         }
+ 
+         if (use_heap) {
++            std::cout << "Using heap search with nn=" << nn << ", k=" << k << ", ntotal=" << ntotal << std::endl;
+             // We see the distances and labels as heaps.
+             int_maxheap_array_t res = {
+                     size_t(nn), size_t(k), labels + s * k, distances + s * k};
+@@ -129,4 +131,26 @@ void IndexBinaryFlat::range_search(
+             x, xb.data(), n, ntotal, radius, code_size, result, sel);
+ }
+ 
++void IndexBinaryFlat::exact_search_with_ids(
++        idx_t n,
++        const uint8_t* x,
++        idx_t k,
++        int32_t* distances,
++        idx_t* labels,
++        const idx_t* ids,
++        idx_t n_ids) const {
++    FAISS_THROW_IF_NOT(k > 0);
++    FAISS_THROW_IF_NOT(ids != nullptr);
++    FAISS_THROW_IF_NOT(n_ids > 0);
++
++    if (use_heap) {
++        int_maxheap_array_t res = {size_t(n), size_t(k), labels, distances};
++        hammings_knn_hc_with_ids(
++                &res, x, xb.data(), ids, n_ids, code_size, true, true);
++    } else {
++        hammings_knn_mc_with_ids(
++                x, xb.data(), n, ids, n_ids, k, code_size, distances, labels);
++    }
++}
++
+ } // namespace faiss
+diff --git a/faiss/IndexBinaryFlat.h b/faiss/IndexBinaryFlat.h
+index 525df4685..cfb22a529 100644
+--- a/faiss/IndexBinaryFlat.h
++++ b/faiss/IndexBinaryFlat.h
+@@ -63,6 +63,15 @@ struct IndexBinaryFlat : IndexBinary {
+             RangeSearchResult* result,
+             const SearchParameters* params = nullptr) const override;
+ 
++    void exact_search_with_ids(
++            idx_t n,
++            const uint8_t* x,
++            idx_t k,
++            int32_t* distances,
++            idx_t* labels,
++            const idx_t* ids,
++            idx_t n_ids) const;
++
+     void reconstruct(idx_t key, uint8_t* recons) const override;
+ 
+     /** Remove some ids. Note that because of the indexing structure,
+diff --git a/faiss/IndexBinaryHNSW.cpp b/faiss/IndexBinaryHNSW.cpp
+index 4fbfb5ff5..a6fa646a6 100644
+--- a/faiss/IndexBinaryHNSW.cpp
++++ b/faiss/IndexBinaryHNSW.cpp
+@@ -301,6 +301,48 @@ void IndexBinaryHNSW::reconstruct(idx_t key, uint8_t* recons) const {
+     storage->reconstruct(key, recons);
+ }
+ 
++void IndexBinaryHNSW::exact_search(
++        idx_t n,
++        const uint8_t* x,
++        idx_t k,
++        int32_t* distances,
++        idx_t* labels,
++        const idx_t* internal_ids,
++        idx_t n_internal_ids) const {
++    FAISS_THROW_IF_NOT(k > 0);
++    FAISS_THROW_IF_NOT(internal_ids != nullptr);
++    FAISS_THROW_IF_NOT(n_internal_ids > 0);
++
++#pragma omp parallel for
++    for (idx_t i = 0; i < n; i++) {
++        std::unique_ptr<DistanceComputer> dis(get_distance_computer());
++        dis->set_query((float*)(x + i * code_size));
++        
++        std::vector<std::pair<float, idx_t>> results;
++        results.reserve(n_internal_ids);
++        
++        for (idx_t j = 0; j < n_internal_ids; j++) {
++            idx_t internal_id = internal_ids[j];
++            if (internal_id >= 0 && internal_id < ntotal) {
++                results.emplace_back((*dis)(internal_id), internal_id);
++            }
++        }
++        
++        idx_t result_k = std::min(k, (idx_t)results.size());
++        std::partial_sort(results.begin(), results.begin() + result_k, results.end());
++        
++        for (idx_t j = 0; j < result_k; j++) {
++            distances[i * k + j] = (int32_t)std::round(results[j].first);
++            labels[i * k + j] = results[j].second;
++        }
++        
++        for (idx_t j = result_k; j < k; j++) {
++            distances[i * k + j] = std::numeric_limits<int32_t>::max();
++            labels[i * k + j] = -1;
++        }
++    }
++}
++
+ namespace {
+ 
+ template <class HammingComputer>
+diff --git a/faiss/IndexBinaryHNSW.h b/faiss/IndexBinaryHNSW.h
+index 8b90ef0bb..d8f31f5f8 100644
+--- a/faiss/IndexBinaryHNSW.h
++++ b/faiss/IndexBinaryHNSW.h
+@@ -74,6 +74,16 @@ struct IndexBinaryHNSW : IndexBinary {
+ 
+     void reconstruct(idx_t key, uint8_t* recons) const override;
+ 
++    /// Exact search on specified internal IDs only
++    void exact_search(
++            idx_t n,
++            const uint8_t* x,
++            idx_t k,
++            int32_t* distances,
++            idx_t* labels,
++            const idx_t* internal_ids,
++            idx_t n_internal_ids) const;
++
+     void reset() override;
+ };
+ 
+diff --git a/faiss/impl/index_read.cpp b/faiss/impl/index_read.cpp
+index 89f05c757..a2e58753a 100644
+--- a/faiss/impl/index_read.cpp
++++ b/faiss/impl/index_read.cpp
+@@ -1075,7 +1075,7 @@ Index* read_index(IOReader* f, int io_flags) {
+         idxrf->own_refine_index = true;
+         idx = idxrf;
+     } else if (h == fourcc("IxMp") || h == fourcc("IxM2")) {
+-        bool is_map2 = h == fourcc("IxM2");
++        bool is_map2 = true;
+         IndexIDMap* idxmap = is_map2 ? new IndexIDMap2() : new IndexIDMap();
+         read_index_header(idxmap, f);
+         idxmap->index = read_index(f, io_flags);
+diff --git a/faiss/utils/hamming.cpp b/faiss/utils/hamming.cpp
+index f609d90ab..8bbd383de 100644
+--- a/faiss/utils/hamming.cpp
++++ b/faiss/utils/hamming.cpp
+@@ -25,6 +25,7 @@
+ 
+ #include <algorithm>
+ #include <cstdio>
++#include <iostream>
+ #include <memory>
+ #include <vector>
+ 
+@@ -239,6 +240,46 @@ void hammings_knn_hc(
+     }
+ }
+ 
++/* Return closest neighbors for specific IDs only */
++template <class HammingComputer>
++void hammings_knn_hc_with_ids(
++        int bytes_per_code,
++        int_maxheap_array_t* __restrict ha,
++        const uint8_t* __restrict bs1,
++        const uint8_t* __restrict bs2,
++        const int64_t* __restrict ids,
++        size_t n_ids,
++        bool order = true,
++        bool init_heap = true) {
++    size_t k = ha->k;
++    if (init_heap) {
++        ha->heapify();
++    }
++    //print log statement
++    HammingComputer hc(bs1, bytes_per_code);
++    hamdis_t* __restrict bh_val_ = ha->val;
++    int64_t* __restrict bh_ids_ = ha->ids;
++
++#pragma omp parallel for
++    for (size_t idx = 0; idx < n_ids; idx++) {
++        int64_t j = ids[idx];
++        const uint8_t* bs2_ = bs2 + j * bytes_per_code;
++        hamdis_t dis = hc.hamming(bs2_);
++        if (dis < bh_val_[0]) {
++#pragma omp critical
++            {
++                if (dis < bh_val_[0]) {
++                    faiss::maxheap_replace_top<hamdis_t>(k, bh_val_, bh_ids_, dis, j);
++                }
++            }
++        }
++    }
++    
++    if (order) {
++        ha->reorder();
++    }
++}
++
+ /* Return closest neighbors w.r.t Hamming distance, using max count. */
+ template <class HammingComputer>
+ void hammings_knn_mc(
+@@ -297,6 +338,63 @@ void hammings_knn_mc(
+     }
+ }
+ 
++/* Return closest neighbors for specific IDs only, using max count. */
++template <class HammingComputer>
++void hammings_knn_mc_with_ids(
++        int bytes_per_code,
++        const uint8_t* __restrict a,
++        const uint8_t* __restrict b,
++        size_t na,
++        const int64_t* __restrict ids,
++        size_t n_ids,
++        size_t k,
++        int32_t* __restrict distances,
++        int64_t* __restrict labels) {
++    const int nBuckets = bytes_per_code * 8 + 1;
++    std::vector<int> all_counters(na * nBuckets, 0);
++    std::unique_ptr<int64_t[]> all_ids_per_dis(new int64_t[na * nBuckets * k]);
++
++    std::vector<HCounterState<HammingComputer>> cs;
++    //print using cout
++    std::cout << "na" << na << std::endl;
++    // print all_counters.data()
++    std::cout << "all_counters.data()" << all_counters.data() << std::endl;
++    for (size_t i = 0; i < na; ++i) {
++        cs.push_back(HCounterState<HammingComputer>(
++                all_counters.data() + i * nBuckets,
++                all_ids_per_dis.get() + i * nBuckets * k,
++                a + i * bytes_per_code,
++                8 * bytes_per_code,
++                k));
++    }
++
++#pragma omp parallel for
++    for (int64_t i = 0; i < na; ++i) {
++        for (size_t idx = 0; idx < n_ids; ++idx) {
++            int64_t j = ids[idx];
++            cs[i].update_counter(b + j * bytes_per_code, j);
++        }
++    }
++
++    for (size_t i = 0; i < na; ++i) {
++        HCounterState<HammingComputer>& csi = cs[i];
++
++        int nres = 0;
++        for (int b_2 = 0; b_2 < nBuckets && nres < k; b_2++) {
++            for (int l = 0; l < csi.counters[b_2] && nres < k; l++) {
++                labels[i * k + nres] = csi.ids_per_dis[b_2 * k + l];
++                distances[i * k + nres] = b_2;
++                nres++;
++            }
++        }
++        while (nres < k) {
++            labels[i * k + nres] = -1;
++            distances[i * k + nres] = std::numeric_limits<int32_t>::max();
++            ++nres;
++        }
++    }
++}
++
+ template <class HammingComputer>
+ void hamming_range_search(
+         const uint8_t* a,
+@@ -554,6 +652,51 @@ void hamming_range_search(
+             code_size, r, a, b, na, nb, radius, code_size, result, sel);
+ }
+ 
++struct Run_hammings_knn_hc_with_ids {
++    using T = void;
++    template <class HammingComputer, class... Types>
++    void f(Types... args) {
++        hammings_knn_hc_with_ids<HammingComputer>(args...);
++    }
++};
++
++struct Run_hammings_knn_mc_with_ids {
++    using T = void;
++    template <class HammingComputer, class... Types>
++    void f(Types... args) {
++        hammings_knn_mc_with_ids<HammingComputer>(args...);
++    }
++};
++
++void hammings_knn_hc_with_ids(
++        int_maxheap_array_t* __restrict ha,
++        const uint8_t* __restrict a,
++        const uint8_t* __restrict b,
++        const int64_t* __restrict ids,
++        size_t n_ids,
++        size_t ncodes,
++        int order,
++        int init_heap) {
++    Run_hammings_knn_hc_with_ids r;
++    dispatch_HammingComputer(
++            ncodes, r, ncodes, ha, a, b, ids, n_ids, order, init_heap);
++}
++
++void hammings_knn_mc_with_ids(
++        const uint8_t* __restrict a,
++        const uint8_t* __restrict b,
++        size_t na,
++        const int64_t* __restrict ids,
++        size_t n_ids,
++        size_t k,
++        size_t ncodes,
++        int32_t* __restrict distances,
++        int64_t* __restrict labels) {
++    Run_hammings_knn_mc_with_ids r;
++    dispatch_HammingComputer(
++            ncodes, r, ncodes, a, b, na, ids, n_ids, k, distances, labels);
++}
++
+ /* Count number of matches given a max threshold            */
+ void hamming_count_thres(
+         const uint8_t* bs1,
+diff --git a/faiss/utils/hamming.h b/faiss/utils/hamming.h
+index 3f3f488bc..9fdd12519 100644
+--- a/faiss/utils/hamming.h
++++ b/faiss/utils/hamming.h
+@@ -171,6 +171,27 @@ void hammings_knn_mc(
+         int64_t* labels,
+         const faiss::IDSelector* sel = nullptr);
+ 
++void hammings_knn_hc_with_ids(
++        int_maxheap_array_t* ha,
++        const uint8_t* a,
++        const uint8_t* b,
++        const int64_t* ids,
++        size_t n_ids,
++        size_t ncodes,
++        int ordered,
++        int init_heap = 1);
++
++void hammings_knn_mc_with_ids(
++        const uint8_t* a,
++        const uint8_t* b,
++        size_t na,
++        const int64_t* ids,
++        size_t n_ids,
++        size_t k,
++        size_t ncodes,
++        int32_t* distances,
++        int64_t* labels);
++
+ /** same as hammings_knn except we are doing a range search with radius */
+ void hamming_range_search(
+         const uint8_t* a,
