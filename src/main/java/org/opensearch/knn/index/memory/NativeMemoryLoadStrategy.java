@@ -89,6 +89,9 @@ public interface NativeMemoryLoadStrategy<T extends NativeMemoryAllocation, U ex
             if (!indexEntryContext.isIndexGraphFileOpened()) {
                 throw new IllegalStateException("Index [" + indexEntryContext.getOpenSearchIndexName() + "] is not preloaded");
             }
+
+
+
             try (indexEntryContext) {
                 final long indexAddress = JNIService.loadIndex(
                     indexEntryContext.indexInputWithBuffer,

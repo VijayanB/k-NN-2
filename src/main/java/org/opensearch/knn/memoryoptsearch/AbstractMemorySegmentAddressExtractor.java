@@ -19,6 +19,8 @@ import java.lang.reflect.InaccessibleObjectException;
  */
 @Log4j2
 public abstract class AbstractMemorySegmentAddressExtractor implements MemorySegmentAddressExtractor {
+    private static final long PAGE_SIZE = 4096L; // 4KB
+
     /**
      * Try to extract {@code MemorySegment[]} from given input stream, and return address and size info of them.
      *
@@ -46,11 +48,72 @@ public abstract class AbstractMemorySegmentAddressExtractor implements MemorySeg
         return null;
     }
 
+    public record MemorySegmentInfo(long address, long size) {}
+
+    /**
+     * Extract MemorySegmentInfo array from IndexInput.
+     *
+     * @param indexInput the index input
+     * @return array of MemorySegmentInfo or null if extraction fails
+     */
+    public MemorySegmentInfo[] extractMemorySegmentInfo(IndexInput indexInput, boolean alignToPageBoundary) {
+        try {
+            final Object objSegments = getMemorySegments(indexInput);
+            if (objSegments == null) {
+                return null;
+            }
+
+            final int numSegments = Array.getLength(objSegments);
+            final MemorySegmentInfo[] segmentInfos = new MemorySegmentInfo[numSegments];
+
+            for (int i = 0; i < numSegments; i++) {
+                final Object memorySegment = Array.get(objSegments, i);
+                if (memorySegment == null) {
+                    log.warn("Memory segment at " + i + " is null");
+                    return null;
+                }
+                long address = getAddressFromMemorySegment(memorySegment);
+                long size = getChunkSizeFromMemorySegment(memorySegment);
+
+                if (alignToPageBoundary) {
+                    // aligns the offset to beginning of page
+                    long offset = address % PAGE_SIZE;
+                    segmentInfos[i] = new MemorySegmentInfo(address - offset, size + offset);
+                } else {
+                    segmentInfos[i] = new MemorySegmentInfo(address, size);
+                }
+            }
+
+            return segmentInfos;
+        } catch (Exception e) {
+            log.error("Unexpected exception was thrown from address extraction", e);
+        }
+        return null;
+    }
+
+    /**
+     * Extract address and size from IndexInput without offset/size filtering.
+     *
+     * @param indexInput the index input
+     * @return array of [address1, size1, address2, size2, ...] or null if extraction fails
+     */
+    public long[] extractAddressAndSize(IndexInput indexInput) {
+        MemorySegmentInfo[] segmentInfos = extractMemorySegmentInfo(indexInput);
+        if (segmentInfos == null) {
+            return null;
+        }
+        
+        long[] addressAndSize = new long[2 * segmentInfos.length];
+        for (int i = 0; i < segmentInfos.length; i++) {
+            addressAndSize[2 * i] = segmentInfos[i].address();
+            addressAndSize[2 * i + 1] = segmentInfos[i].size();
+        }
+        return addressAndSize;
+    }
+
     private long[] doExtractAddressAndSize(IndexInput indexInput, long baseOffset, long requestSize) {
-        // We're expecting this to be MemorySegment[]
         final Object objSegments = getMemorySegments(indexInput);
         if (objSegments == null) {
-            // It's not MemorySegment[]
             return null;
         }
 
@@ -63,7 +126,6 @@ public abstract class AbstractMemorySegmentAddressExtractor implements MemorySeg
         for (int segmentIndex = 0; segmentIndex < numSegments; segmentIndex++) {
             final Object memorySegment = Array.get(objSegments, segmentIndex);
             if (memorySegment == null) {
-                // Memory segments does not have complete mapped regions.
                 log.warn(
                     "Memory segment at " + segmentIndex + " is null, which is unexpected. The number of MemorySegment was" + numSegments
                 );

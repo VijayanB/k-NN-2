@@ -28,6 +28,7 @@ import org.opensearch.knn.index.KNNVectorSimilarityFunction;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.engine.qframe.QuantizationConfig;
 import org.opensearch.knn.jni.SimdVectorComputeService;
+import org.opensearch.knn.memoryoptsearch.MemorySegmentAddressExtractorUtil;
 import org.opensearch.knn.memoryoptsearch.VectorSearcher;
 import org.opensearch.knn.memoryoptsearch.faiss.cagra.FaissCagraHNSW;
 
@@ -63,6 +64,7 @@ public class FaissMemoryOptimizedSearcher implements VectorSearcher {
         this.indexInput = indexInput;
         this.fileSize = indexInput.length();
         this.faissIndex = FaissIndex.load(indexInput);
+
         final KNNVectorSimilarityFunction knnVectorSimilarityFunction = faissIndex.getVectorSimilarityFunction();
 
         if (knnVectorSimilarityFunction != KNNVectorSimilarityFunction.HAMMING) {
@@ -90,6 +92,8 @@ public class FaissMemoryOptimizedSearcher implements VectorSearcher {
         if (faissIndex instanceof FaissIdMapIndex idMapIndex) {
             return idMapIndex.getFaissHnsw();
         }
+
+
 
         throw new IllegalArgumentException("Faiss index [" + faissIndex.getIndexType() + "] does not have HNSW as an index.");
     }
