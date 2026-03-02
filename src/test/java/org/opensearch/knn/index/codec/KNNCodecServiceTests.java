@@ -16,7 +16,6 @@ import org.opensearch.index.mapper.MapperService;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.index.codec.nativeindex.NativeIndexBuildStrategyFactory;
 
-import java.util.List;
 import java.util.UUID;
 
 import static org.mockito.Mockito.mock;
@@ -46,7 +45,7 @@ public class KNNCodecServiceTests extends KNNTestCase {
     public void testGetCodecByName() {
         MapperService mapperService = mock(MapperService.class);
         Logger loggerMock = mock(Logger.class);
-        CodecServiceConfig codecServiceConfig = new CodecServiceConfig(indexSettings, mapperService, loggerMock, List.of());
+        CodecServiceConfig codecServiceConfig = new CodecServiceConfig(indexSettings, mapperService, loggerMock);
         KNNCodecService knnCodecService = new KNNCodecService(codecServiceConfig, mock(NativeIndexBuildStrategyFactory.class));
         Codec codec = knnCodecService.codec(KNNCodecVersion.CURRENT_DEFAULT_DELEGATE.getName());
         assertNotNull(codec);
@@ -61,7 +60,7 @@ public class KNNCodecServiceTests extends KNNTestCase {
      */
     public void testGetCodecByNameWithNoMapperService() {
         Logger loggerMock = mock(Logger.class);
-        CodecServiceConfig codecServiceConfig = new CodecServiceConfig(indexSettings, null, loggerMock, List.of());
+        CodecServiceConfig codecServiceConfig = new CodecServiceConfig(indexSettings, null, loggerMock);
         KNNCodecService knnCodecService = new KNNCodecService(codecServiceConfig, mock(NativeIndexBuildStrategyFactory.class));
         Codec codec = knnCodecService.codec(KNNCodecVersion.CURRENT_DEFAULT_DELEGATE.getName());
         assertNotNull(codec);
