@@ -68,7 +68,7 @@ public final class MemorySegmentAddressExtractorUtil {
         } catch (Throwable t) {
             // Any other errors (constructor, reflection issues)
             log.error("Failed to instantiate MemorySegmentAddressExtractor", t);
-            instance = (indexInput, baseOffset, requestSize) -> null;
+            instance = MemorySegmentAddressExtractor.EMPTY;
         }
         INSTANCE = instance;
     }
@@ -87,5 +87,15 @@ public final class MemorySegmentAddressExtractorUtil {
      */
     public static long[] tryExtractAddressAndSize(final IndexInput indexInput, final long baseOffset, final long requestSize) {
         return INSTANCE.extractAddressAndSize(indexInput, baseOffset, requestSize);
+    }
+
+    /**
+     * Try to extract {@code MemorySegment[]} from given input stream, and return memory segment info.
+     *
+     * @param indexInput : Input stream
+     * @return null if it fails to extract mapped pointer otherwise it will return an array of MemorySegmentInfo.
+     */
+    public static AbstractMemorySegmentAddressExtractor.MemorySegmentInfo[] tryExtractMemorySegmentInfo(final IndexInput indexInput) {
+        return INSTANCE.extractMemorySegmentInfo(indexInput);
     }
 }

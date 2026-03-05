@@ -465,4 +465,19 @@ public class JNIService {
         }
         throw new IllegalArgumentException(String.format(Locale.ROOT, "RadiusQueryIndex not supported for provided engine"));
     }
+
+    /**
+     * Lock memory pages into RAM to prevent swapping
+     *
+     * @param address Memory address to lock
+     * @param size Size of memory region to lock
+     * @param knnEngine engine to use for mlock
+     * @return 0 on success, -1 on failure
+     */
+    public static int mlock(long address, long size, KNNEngine knnEngine) {
+        if (KNNEngine.FAISS == knnEngine) {
+            return FaissService.mlock(address, size);
+        }
+        throw new IllegalArgumentException(String.format(Locale.ROOT, "mlock not supported for provided engine : %s", knnEngine.getName()));
+    }
 }

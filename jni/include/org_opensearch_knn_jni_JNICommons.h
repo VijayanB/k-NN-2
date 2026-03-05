@@ -66,6 +66,14 @@ JNIEXPORT void JNICALL Java_org_opensearch_knn_jni_JNICommons_freeBinaryVectorDa
 JNIEXPORT void JNICALL Java_org_opensearch_knn_jni_JNICommons_freeByteVectorData
 (JNIEnv *, jclass, jlong);
 
+/*
+* Class:     org_opensearch_knn_jni_JNICommons
+* Method:    mlock
+* Signature: (JJ)I
+*/
+JNIEXPORT jint JNICALL Java_org_opensearch_knn_jni_JNICommons_mlock
+(JNIEnv *, jclass, jlong, jlong);
+
 #ifdef __cplusplus
 }
 #endif

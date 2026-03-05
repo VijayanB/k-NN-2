@@ -12,6 +12,7 @@
 #include "org_opensearch_knn_jni_FaissService.h"
 
 #include <jni.h>
+#include <sys/mman.h>
 
 #include <vector>
 
@@ -573,3 +574,15 @@ JNIEXPORT void JNICALL Java_org_opensearch_knn_jni_FaissService_setMergeInterrup
         jniUtil.CatchCppExceptionAndThrowJava(env);
     }
 }
+
+JNIEXPORT jint JNICALL Java_org_opensearch_knn_jni_FaissService_mlock(JNIEnv * env, jclass cls,
+                                                                       jlong address, jlong size)
+{
+    try {
+        return knn_jni::faiss_wrapper::Mlock(address, size);
+    } catch (...) {
+        jniUtil.CatchCppExceptionAndThrowJava(env);
+    }
+    return -1;
+}
+

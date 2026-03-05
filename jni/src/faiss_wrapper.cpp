@@ -16,6 +16,10 @@
 #include "faiss_stream_support.h"
 #include "faiss_index_bq.h"
 
+#include <sys/mman.h>
+#include <cerrno>
+#include <cstring>
+
 #include "faiss/impl/io.h"
 #include "faiss/index_factory.h"
 #include "faiss/index_io.h"
@@ -1337,4 +1341,16 @@ jobjectArray knn_jni::faiss_wrapper::RangeSearchWithFilter(knn_jni::JNIUtilInter
     }
 
     return results;
+}
+
+jint knn_jni::faiss_wrapper::Mlock(jlong address, jlong size) {
+    void* ptr = reinterpret_cast<void*>(address);
+    if (::mlock(ptr, static_cast<size_t>(size)) != 0) {
+        int err = errno;
+        throw std::runtime_error("mlock failed for address: " + std::to_string(address) + 
+                                 ", size: " + std::to_string(size) + 
+                                 ", errno: " + std::to_string(err) + 
+                                 " (" + std::string(strerror(err)) + ")");
+    }
+    return 0;
 }

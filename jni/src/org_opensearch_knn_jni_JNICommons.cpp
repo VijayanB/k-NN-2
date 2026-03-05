@@ -12,6 +12,7 @@
 #include "org_opensearch_knn_jni_JNICommons.h"
 
 #include <jni.h>
+#include <sys/mman.h>
 #include "commons.h"
 #include "jni_util.h"
 
@@ -102,4 +103,11 @@ JNIEXPORT void JNICALL Java_org_opensearch_knn_jni_JNICommons_freeByteVectorData
     } catch (...) {
         jniUtil.CatchCppExceptionAndThrowJava(env);
     }
+}
+
+JNIEXPORT jint JNICALL Java_org_opensearch_knn_jni_JNICommons_mlock(JNIEnv * env, jclass cls,
+                                                                     jlong address, jlong size)
+{
+    void* ptr = reinterpret_cast<void*>(address);
+    return ::mlock(ptr, static_cast<size_t>(size)) == 0 ? 0 : -1;
 }

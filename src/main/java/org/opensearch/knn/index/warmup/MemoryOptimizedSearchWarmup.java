@@ -24,6 +24,9 @@ import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.engine.MemoryOptimizedSearchSupportSpec;
 import org.opensearch.knn.index.mapper.KNNVectorFieldMapper;
 import org.opensearch.knn.index.mapper.KNNVectorFieldType;
+import org.opensearch.knn.jni.JNIService;
+import org.opensearch.knn.memoryoptsearch.AbstractMemorySegmentAddressExtractor;
+import org.opensearch.knn.memoryoptsearch.MemorySegmentAddressExtractorUtil;
 import org.opensearch.knn.memoryoptsearch.faiss.FaissMemoryOptimizedSearcher;
 
 import java.io.IOException;
@@ -51,9 +54,9 @@ public class MemoryOptimizedSearchWarmup {
         final Directory bottomDirectory = FilterDirectory.unwrap(directory);
 
         ArrayList<FieldInfo> memOptSearchFields = getFieldsForMemoryOptimizedSearch(leafReader, mapperService, indexName);
-        for (FieldInfo field : memOptSearchFields) {
-            loadFullPrecisionVectors(leafReader, field);
-        }
+//        for (FieldInfo field : memOptSearchFields) {
+//            loadFullPrecisionVectors(leafReader, field);
+//        }
 
         ArrayList<String> warmedUp = new ArrayList<>();
 
@@ -84,6 +87,7 @@ public class MemoryOptimizedSearchWarmup {
         final Path indexPath = Paths.get(engineFiles.getFirst());
 
         try (IndexInput input = directory.openInput(indexPath.toString(), IOContext.READONCE)) {
+            // Touch pages first to load them into memory
             if (input.length() != 0) {
                 for (long i = 0; i < input.length(); i += 4096) {
                     input.seek(i);
@@ -91,6 +95,21 @@ public class MemoryOptimizedSearchWarmup {
                 }
                 input.seek(input.length() - 1);
                 input.readByte();
+            }
+
+            // Now lock the pages in memory
+            log.info("Attempting to extract memory segment info for field: {}", field.getName());
+            AbstractMemorySegmentAddressExtractor.MemorySegmentInfo[] segmentInfo = MemorySegmentAddressExtractorUtil
+                .tryExtractMemorySegmentInfo(input);
+            if (segmentInfo != null) {
+                log.info("Extracted {} memory segments for field: {}", segmentInfo.length, field.getName());
+                for (AbstractMemorySegmentAddressExtractor.MemorySegmentInfo info : segmentInfo) {
+                    log.info("Calling mlock for offset: {} and size: {}", info.offset(), info.size());
+                    final int result = JNIService.mlock(info.offset(), info.size(), knnEngine);
+                    log.info("mlock return {} for offset: {} and size: {}", result, info.offset(), info.size());
+                }
+            } else {
+                log.warn("Failed to extract memory segment info for field: {}", field.getName());
             }
         }
 

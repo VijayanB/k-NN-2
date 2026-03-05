@@ -19,6 +19,9 @@ import java.lang.reflect.InaccessibleObjectException;
  */
 @Log4j2
 public abstract class AbstractMemorySegmentAddressExtractor implements MemorySegmentAddressExtractor {
+    public record MemorySegmentInfo(long offset, long size) {
+    }
+
     /**
      * Try to extract {@code MemorySegment[]} from given input stream, and return address and size info of them.
      *
@@ -118,6 +121,40 @@ public abstract class AbstractMemorySegmentAddressExtractor implements MemorySeg
         }
 
         return addressAndSize;
+    }
+
+    public MemorySegmentInfo[] doExtractAddressAndSize(IndexInput indexInput) {
+        final Object objSegments = getMemorySegments(indexInput);
+        if (objSegments == null) {
+            return null;
+        }
+
+        final int numSegments = Array.getLength(objSegments);
+        final MemorySegmentInfo[] memorySegmentInfos = new MemorySegmentInfo[numSegments];
+
+        for (int i = 0; i < numSegments; i++) {
+            final Object memorySegment = Array.get(objSegments, i);
+            if (memorySegment == null) {
+                log.warn("Memory segment at " + i + " is null, which is unexpected. The number of MemorySegment was" + numSegments);
+                return null;
+            }
+            memorySegmentInfos[i] = new MemorySegmentInfo(
+                getAddressFromMemorySegment(memorySegment),
+                getChunkSizeFromMemorySegment(memorySegment)
+            );
+        }
+
+        return memorySegmentInfos;
+    }
+
+    @Override
+    public MemorySegmentInfo[] extractMemorySegmentInfo(IndexInput indexInput) {
+        try {
+            return doExtractAddressAndSize(indexInput);
+        } catch (Exception e) {
+            log.error("Unexpected exception was thrown from address extraction", e);
+        }
+        return null;
     }
 
     protected abstract long getChunkSizeFromMemorySegment(Object memorySegment);

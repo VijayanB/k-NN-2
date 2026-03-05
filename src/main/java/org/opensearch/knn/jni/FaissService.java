@@ -464,4 +464,13 @@ class FaissService {
      * @see org.apache.lucene.index.MergeAbortChecker#isMergeAborted()
      */
     public static native void setMergeInterruptCallback();
+
+    /**
+     * Lock memory pages into RAM to prevent swapping
+     *
+     * @param address Memory address to lock
+     * @param size Size of memory region to lock
+     * @return 0 on success, -1 on failure
+     */
+    public static native int mlock(long address, long size);
 }

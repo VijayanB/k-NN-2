@@ -187,6 +187,15 @@ namespace knn_jni {
          * @throws std::runtime_error if the space type is invalid
          */
         faiss::MetricType TranslateSpaceToMetric(const std::string& spaceType);
+
+        /**
+         * Lock memory pages into RAM to prevent swapping
+         *
+         * @param address Memory address to lock
+         * @param size Size of memory region to lock
+         * @return 0 on success, -1 on failure
+         */
+        jint Mlock(jlong address, jlong size);
     }
 }
 
