@@ -9,6 +9,8 @@ import org.apache.lucene.codecs.KnnFieldVectorsWriter;
 import org.apache.lucene.index.BinaryDocValues;
 import org.apache.lucene.index.FloatVectorValues;
 import org.apache.lucene.index.KnnVectorValues;
+import org.apache.lucene.search.VectorScorer;
+import org.opensearch.knn.index.SpaceType;
 
 import java.io.IOException;
 import java.util.Arrays;
@@ -37,5 +39,37 @@ public class KNNFloatVectorValues extends KNNVectorValues<float[]> {
             return Arrays.copyOf(vector, vector.length);
         }
         return vector;
+    }
+
+    /**
+     * Returns a {@link VectorScorer} for the given float query vector.
+     * @param target the float query vector
+     * @param spaceType the space type for similarity computation
+     * @return {@link VectorScorer}
+     * @throws IOException if an I/O error occurs
+     */
+    public VectorScorer scorer(final float[] target, final SpaceType spaceType) throws IOException {
+        return VectorScorerFactory.getScorer(
+            (KNNVectorValuesIterator.DocIdsIteratorValues) vectorValuesIterator,
+            target,
+            ScoreMode.SCORE,
+            spaceType
+        );
+    }
+
+    /**
+     * Returns a rescorer {@link VectorScorer} for the given float query vector.
+     * @param target the float query vector
+     * @param spaceType the space type for similarity computation
+     * @return {@link VectorScorer}
+     * @throws IOException if an I/O error occurs
+     */
+    public VectorScorer rescorer(final float[] target, final SpaceType spaceType) throws IOException {
+        return VectorScorerFactory.getScorer(
+            (KNNVectorValuesIterator.DocIdsIteratorValues) vectorValuesIterator,
+            target,
+            ScoreMode.RESCORE,
+            spaceType
+        );
     }
 }

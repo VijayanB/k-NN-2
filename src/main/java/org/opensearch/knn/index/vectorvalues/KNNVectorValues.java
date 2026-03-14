@@ -11,7 +11,6 @@ import org.apache.lucene.codecs.KnnFieldVectorsWriter;
 import org.apache.lucene.index.BinaryDocValues;
 import org.apache.lucene.index.ByteVectorValues;
 import org.apache.lucene.index.FloatVectorValues;
-
 import java.io.IOException;
 
 /**
@@ -116,4 +115,5 @@ public abstract class KNNVectorValues<T> {
     public int nextDoc() throws IOException {
         return vectorValuesIterator.nextDoc();
     }
+
 }
