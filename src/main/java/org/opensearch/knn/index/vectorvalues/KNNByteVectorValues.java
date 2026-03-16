@@ -52,7 +52,7 @@ public class KNNByteVectorValues extends KNNVectorValues<byte[]> {
      * @throws IOException if an I/O error occurs
      */
     public VectorScorer scorer(final byte[] target, final SpaceType spaceType) throws IOException {
-        return VectorScorerFactory.getScorer(
+        return VectorScorers.createScorer(
             (KNNVectorValuesIterator.DocIdsIteratorValues) vectorValuesIterator,
             target,
             ScoreMode.SCORE,
@@ -68,7 +68,7 @@ public class KNNByteVectorValues extends KNNVectorValues<byte[]> {
      * @throws IOException if an I/O error occurs
      */
     public VectorScorer rescorer(final byte[] target, final SpaceType spaceType) throws IOException {
-        return VectorScorerFactory.getScorer(
+        return VectorScorers.createScorer(
             (KNNVectorValuesIterator.DocIdsIteratorValues) vectorValuesIterator,
             target,
             ScoreMode.RESCORE,

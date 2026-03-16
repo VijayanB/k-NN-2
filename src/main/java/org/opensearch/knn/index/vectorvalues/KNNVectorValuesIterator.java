@@ -66,7 +66,6 @@ public interface KNNVectorValuesIterator {
      */
     VectorValueExtractorStrategy getVectorExtractorStrategy();
 
-
     /**
      * Abstract base class for KNN vector iterators, encapsulating common iteration logic.
      */
@@ -148,7 +147,6 @@ public interface KNNVectorValuesIterator {
         public VectorValueExtractorStrategy getVectorExtractorStrategy() {
             return new VectorValueExtractorStrategy.DISIVectorExtractor();
         }
-
 
     }
 

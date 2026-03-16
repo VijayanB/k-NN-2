@@ -22,7 +22,7 @@ import java.util.stream.Collectors;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-public class VectorScorerFactoryTests extends KNNTestCase {
+public class VectorScorersTests extends KNNTestCase {
 
     // ======================== Float target with FloatVectorValues ========================
 
@@ -37,7 +37,7 @@ public class VectorScorerFactoryTests extends KNNTestCase {
         when(iterator.getDocIdSetIterator()).thenReturn(mock(KnnVectorValues.DocIndexIterator.class));
         when(iterator.getKnnVectorValues()).thenReturn(floatVectorValues);
 
-        final VectorScorer result = VectorScorerFactory.getScorer(iterator, target, ScoreMode.SCORE, SpaceType.L2);
+        final VectorScorer result = VectorScorers.createScorer(iterator, target, ScoreMode.SCORE, SpaceType.L2);
 
         assertSame(expectedScorer, result);
     }
@@ -53,7 +53,7 @@ public class VectorScorerFactoryTests extends KNNTestCase {
         when(iterator.getDocIdSetIterator()).thenReturn(mock(KnnVectorValues.DocIndexIterator.class));
         when(iterator.getKnnVectorValues()).thenReturn(floatVectorValues);
 
-        final VectorScorer result = VectorScorerFactory.getScorer(iterator, target, ScoreMode.RESCORE, SpaceType.L2);
+        final VectorScorer result = VectorScorers.createScorer(iterator, target, ScoreMode.RESCORE, SpaceType.L2);
 
         assertSame(expectedScorer, result);
     }
@@ -71,7 +71,7 @@ public class VectorScorerFactoryTests extends KNNTestCase {
         when(iterator.getDocIdSetIterator()).thenReturn(mock(KnnVectorValues.DocIndexIterator.class));
         when(iterator.getKnnVectorValues()).thenReturn(byteVectorValues);
 
-        final VectorScorer result = VectorScorerFactory.getScorer(iterator, target, ScoreMode.SCORE, SpaceType.L2);
+        final VectorScorer result = VectorScorers.createScorer(iterator, target, ScoreMode.SCORE, SpaceType.L2);
 
         assertSame(expectedScorer, result);
     }
@@ -87,7 +87,7 @@ public class VectorScorerFactoryTests extends KNNTestCase {
         when(iterator.getDocIdSetIterator()).thenReturn(mock(KnnVectorValues.DocIndexIterator.class));
         when(iterator.getKnnVectorValues()).thenReturn(byteVectorValues);
 
-        final VectorScorer result = VectorScorerFactory.getScorer(iterator, target, ScoreMode.RESCORE, SpaceType.L2);
+        final VectorScorer result = VectorScorers.createScorer(iterator, target, ScoreMode.RESCORE, SpaceType.L2);
 
         assertSame(expectedScorer, result);
     }
@@ -102,7 +102,7 @@ public class VectorScorerFactoryTests extends KNNTestCase {
         final var binaryDocValues = new TestVectorValues.PredefinedFloatVectorBinaryDocValues(vectors);
         final var iterator = new KNNVectorValuesIterator.DocIdsIteratorValues(binaryDocValues);
 
-        final VectorScorer scorer = VectorScorerFactory.getScorer(iterator, target, ScoreMode.SCORE, spaceType);
+        final VectorScorer scorer = VectorScorers.createScorer(iterator, target, ScoreMode.SCORE, spaceType);
 
         assertNotNull(scorer);
         assertSame(binaryDocValues, scorer.iterator());
@@ -122,7 +122,7 @@ public class VectorScorerFactoryTests extends KNNTestCase {
         final var binaryDocValues = new TestVectorValues.PredefinedByteVectorBinaryDocValues(vectors);
         final var iterator = new KNNVectorValuesIterator.DocIdsIteratorValues(binaryDocValues);
 
-        final VectorScorer scorer = VectorScorerFactory.getScorer(iterator, target, ScoreMode.SCORE, spaceType);
+        final VectorScorer scorer = VectorScorers.createScorer(iterator, target, ScoreMode.SCORE, spaceType);
 
         assertNotNull(scorer);
         assertSame(binaryDocValues, scorer.iterator());
@@ -142,7 +142,7 @@ public class VectorScorerFactoryTests extends KNNTestCase {
         final var byteVectorValues = new TestVectorValues.PreDefinedByteVectorValues(vectors);
         final var iterator = new KNNVectorValuesIterator.DocIdsIteratorValues(byteVectorValues);
 
-        final VectorScorer scorer = VectorScorerFactory.getScorer(iterator, target, ScoreMode.SCORE, spaceType);
+        final VectorScorer scorer = VectorScorers.createScorer(iterator, target, ScoreMode.SCORE, spaceType);
 
         assertNotNull(scorer);
         assertNotNull(scorer.iterator());
@@ -161,7 +161,7 @@ public class VectorScorerFactoryTests extends KNNTestCase {
         final var byteVectorValues = new TestVectorValues.PreDefinedByteVectorValues(vectors);
         final var iterator = new KNNVectorValuesIterator.DocIdsIteratorValues(byteVectorValues);
 
-        final VectorScorer scorer = VectorScorerFactory.getScorer(iterator, target, ScoreMode.SCORE, spaceType);
+        final VectorScorer scorer = VectorScorers.createScorer(iterator, target, ScoreMode.SCORE, spaceType);
 
         for (int i = 0; i < vectors.size(); i++) {
             scorer.iterator().nextDoc();
@@ -181,7 +181,7 @@ public class VectorScorerFactoryTests extends KNNTestCase {
         final var byteVectorValues = new TestVectorValues.PreDefinedByteVectorValues(vectors);
         final var iterator = new KNNVectorValuesIterator.DocIdsIteratorValues(byteVectorValues);
 
-        final VectorScorer scorer = VectorScorerFactory.getScorer(iterator, target, ScoreMode.SCORE, spaceType);
+        final VectorScorer scorer = VectorScorers.createScorer(iterator, target, ScoreMode.SCORE, spaceType);
 
         for (int i = 0; i < vectors.size(); i++) {
             scorer.iterator().nextDoc();
@@ -200,7 +200,7 @@ public class VectorScorerFactoryTests extends KNNTestCase {
         final var binaryVectorValues = new TestVectorValues.PreDefinedBinaryVectorValues(vectors);
         final var iterator = new KNNVectorValuesIterator.DocIdsIteratorValues(binaryVectorValues);
 
-        final VectorScorer scorer = VectorScorerFactory.getScorer(iterator, target, ScoreMode.SCORE, spaceType);
+        final VectorScorer scorer = VectorScorers.createScorer(iterator, target, ScoreMode.SCORE, spaceType);
 
         for (int i = 0; i < vectors.size(); i++) {
             scorer.iterator().nextDoc();
@@ -221,7 +221,7 @@ public class VectorScorerFactoryTests extends KNNTestCase {
         final var binaryDocValues = new TestVectorValues.ConstantVectorBinaryDocValues(count, dimension, constantValue);
         final var iterator = new KNNVectorValuesIterator.DocIdsIteratorValues(binaryDocValues);
 
-        final VectorScorer scorer = VectorScorerFactory.getScorer(iterator, target, ScoreMode.SCORE, spaceType);
+        final VectorScorer scorer = VectorScorers.createScorer(iterator, target, ScoreMode.SCORE, spaceType);
 
         final float expectedScore = spaceType.getKnnVectorSimilarityFunction().compare(target, expectedDocVector);
         for (int i = 0; i < count; i++) {
@@ -241,7 +241,7 @@ public class VectorScorerFactoryTests extends KNNTestCase {
         final var binaryDocValues = new TestVectorValues.PredefinedFloatVectorBinaryDocValues(vectors);
         final var iterator = new KNNVectorValuesIterator.DocIdsIteratorValues(binaryDocValues);
 
-        final VectorScorer scorer = VectorScorerFactory.getScorer(iterator, target, ScoreMode.SCORE, spaceType);
+        final VectorScorer scorer = VectorScorers.createScorer(iterator, target, ScoreMode.SCORE, spaceType);
 
         scorer.iterator().nextDoc();
         assertEquals(spaceType.getKnnVectorSimilarityFunction().compare(target, vectors.get(0)), scorer.score(), 1e-5f);
@@ -257,7 +257,7 @@ public class VectorScorerFactoryTests extends KNNTestCase {
         final var binaryDocValues = new TestVectorValues.PredefinedByteVectorBinaryDocValues(vectors);
         final var iterator = new KNNVectorValuesIterator.DocIdsIteratorValues(binaryDocValues);
 
-        final VectorScorer scorer = VectorScorerFactory.getScorer(iterator, target, ScoreMode.SCORE, spaceType);
+        final VectorScorer scorer = VectorScorers.createScorer(iterator, target, ScoreMode.SCORE, spaceType);
 
         scorer.iterator().nextDoc();
         assertEquals(spaceType.getKnnVectorSimilarityFunction().compare(target, vectors.get(0)), scorer.score(), 1e-5f);
@@ -307,8 +307,9 @@ public class VectorScorerFactoryTests extends KNNTestCase {
         final List<byte[]> vectors = Arrays.asList(new byte[] { 1, 2, 3 }, new byte[] { 4, 5, 6 });
         final byte[] target = { 1, 2, 3 };
         final var binaryDocValues = new TestVectorValues.PredefinedByteVectorBinaryDocValues(vectors);
-        final KNNBinaryVectorValues knnBinaryVectorValues = (KNNBinaryVectorValues) TestVectorValues
-            .createKNNBinaryVectorValues(binaryDocValues);
+        final KNNBinaryVectorValues knnBinaryVectorValues = (KNNBinaryVectorValues) TestVectorValues.createKNNBinaryVectorValues(
+            binaryDocValues
+        );
 
         final VectorScorer scorer = knnBinaryVectorValues.scorer(target, spaceType);
 
@@ -341,8 +342,9 @@ public class VectorScorerFactoryTests extends KNNTestCase {
         final List<byte[]> vectors = Arrays.asList(new byte[] { 7, 8 }, new byte[] { 9, 10 });
         final byte[] target = { 7, 8 };
         final var binaryDocValues = new TestVectorValues.PredefinedByteVectorBinaryDocValues(vectors);
-        final KNNBinaryVectorValues knnBinaryVectorValues = (KNNBinaryVectorValues) TestVectorValues
-            .createKNNBinaryVectorValues(binaryDocValues);
+        final KNNBinaryVectorValues knnBinaryVectorValues = (KNNBinaryVectorValues) TestVectorValues.createKNNBinaryVectorValues(
+            binaryDocValues
+        );
 
         final VectorScorer scorer = knnBinaryVectorValues.rescorer(target, spaceType);
 
@@ -377,7 +379,7 @@ public class VectorScorerFactoryTests extends KNNTestCase {
         final var binaryDocValues = new TestVectorValues.PredefinedFloatVectorBinaryDocValues(vectors);
         final var iterator = new KNNVectorValuesIterator.DocIdsIteratorValues(binaryDocValues);
 
-        final VectorScorer scorer = VectorScorerFactory.getScorer(iterator, target, ScoreMode.RESCORE, spaceType);
+        final VectorScorer scorer = VectorScorers.createScorer(iterator, target, ScoreMode.RESCORE, spaceType);
 
         assertNotNull(scorer);
         scorer.iterator().nextDoc();
@@ -394,7 +396,7 @@ public class VectorScorerFactoryTests extends KNNTestCase {
         final var binaryDocValues = new TestVectorValues.PredefinedByteVectorBinaryDocValues(vectors);
         final var iterator = new KNNVectorValuesIterator.DocIdsIteratorValues(binaryDocValues);
 
-        final VectorScorer scorer = VectorScorerFactory.getScorer(iterator, target, ScoreMode.RESCORE, spaceType);
+        final VectorScorer scorer = VectorScorers.createScorer(iterator, target, ScoreMode.RESCORE, spaceType);
 
         assertNotNull(scorer);
         scorer.iterator().nextDoc();
@@ -414,7 +416,7 @@ public class VectorScorerFactoryTests extends KNNTestCase {
         final var byteVectorValues = new TestVectorValues.PreDefinedByteVectorValues(vectors);
         final var iterator = new KNNVectorValuesIterator.DocIdsIteratorValues(byteVectorValues);
 
-        final VectorScorer scorer = VectorScorerFactory.getScorer(iterator, target, ScoreMode.RESCORE, spaceType);
+        final VectorScorer scorer = VectorScorers.createScorer(iterator, target, ScoreMode.RESCORE, spaceType);
 
         for (int i = 0; i < vectors.size(); i++) {
             scorer.iterator().nextDoc();
@@ -428,8 +430,9 @@ public class VectorScorerFactoryTests extends KNNTestCase {
         final List<byte[]> vectors = Arrays.asList(new byte[] { 1, 2 }, new byte[] { 3, 4 });
         final byte[] target = { 1, 2 };
         final var binaryDocValues = new TestVectorValues.PredefinedByteVectorBinaryDocValues(vectors);
-        final KNNBinaryVectorValues knnBinaryVectorValues = (KNNBinaryVectorValues) TestVectorValues
-            .createKNNBinaryVectorValues(binaryDocValues);
+        final KNNBinaryVectorValues knnBinaryVectorValues = (KNNBinaryVectorValues) TestVectorValues.createKNNBinaryVectorValues(
+            binaryDocValues
+        );
 
         final VectorScorer scorer = knnBinaryVectorValues.scorer(target, spaceType);
 
@@ -449,10 +452,7 @@ public class VectorScorerFactoryTests extends KNNTestCase {
         when(iterator.getDocIdSetIterator()).thenReturn(mock(DocIdSetIterator.class));
         when(iterator.getKnnVectorValues()).thenReturn(null);
 
-        expectThrows(
-            NullPointerException.class,
-            () -> VectorScorerFactory.getScorer(iterator, target, ScoreMode.SCORE, SpaceType.L2)
-        );
+        expectThrows(NullPointerException.class, () -> VectorScorers.createScorer(iterator, target, ScoreMode.SCORE, SpaceType.L2));
     }
 
     @SneakyThrows
@@ -463,9 +463,6 @@ public class VectorScorerFactoryTests extends KNNTestCase {
         when(iterator.getDocIdSetIterator()).thenReturn(mock(DocIdSetIterator.class));
         when(iterator.getKnnVectorValues()).thenReturn(floatVectorValues);
 
-        expectThrows(
-            IllegalArgumentException.class,
-            () -> VectorScorerFactory.getScorer(iterator, target, ScoreMode.SCORE, SpaceType.L2)
-        );
+        expectThrows(IllegalArgumentException.class, () -> VectorScorers.createScorer(iterator, target, ScoreMode.SCORE, SpaceType.L2));
     }
 }

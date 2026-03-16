@@ -49,7 +49,7 @@ public class KNNFloatVectorValues extends KNNVectorValues<float[]> {
      * @throws IOException if an I/O error occurs
      */
     public VectorScorer scorer(final float[] target, final SpaceType spaceType) throws IOException {
-        return VectorScorerFactory.getScorer(
+        return VectorScorers.createScorer(
             (KNNVectorValuesIterator.DocIdsIteratorValues) vectorValuesIterator,
             target,
             ScoreMode.SCORE,
@@ -65,7 +65,7 @@ public class KNNFloatVectorValues extends KNNVectorValues<float[]> {
      * @throws IOException if an I/O error occurs
      */
     public VectorScorer rescorer(final float[] target, final SpaceType spaceType) throws IOException {
-        return VectorScorerFactory.getScorer(
+        return VectorScorers.createScorer(
             (KNNVectorValuesIterator.DocIdsIteratorValues) vectorValuesIterator,
             target,
             ScoreMode.RESCORE,
