@@ -35,6 +35,7 @@ import org.opensearch.knn.index.vectorvalues.KNNVectorValuesFactory;
 import org.opensearch.knn.index.vectorvalues.KNNVectorValuesIterator;
 import org.opensearch.knn.index.vectorvalues.ScoreMode;
 import org.opensearch.knn.index.vectorvalues.VectorScorers;
+import org.opensearch.knn.index.query.exactsearch.NestedBestChildVectorScorer;
 import org.opensearch.knn.indices.ModelDao;
 
 import java.io.IOException;
@@ -212,50 +213,54 @@ public class ExactKNNScorer {
         final KNNVectorValuesIterator.DocIdsIteratorValues iteratorValues =
             (KNNVectorValuesIterator.DocIdsIteratorValues) vectorValues.getVectorValuesIterator();
 
+        VectorScorer baseScorer;
         if (VectorDataType.BINARY == vectorDataType) {
-            return VectorScorers.createScorer(
-                iteratorValues, context.getByteQueryVector(), scoreMode, spaceType, acceptedChildrenIterator, parentBitSet
+            baseScorer = VectorScorers.createScorer(
+                iteratorValues, context.getByteQueryVector(), scoreMode, spaceType, null, null
             );
-        }
-
-        if (VectorDataType.BYTE == vectorDataType) {
+        } else if (VectorDataType.BYTE == vectorDataType) {
             final float[] floatQueryVector = context.getFloatQueryVector();
             final byte[] byteQueryVector = new byte[floatQueryVector.length];
             for (int i = 0; i < byteQueryVector.length; i++) {
                 byteQueryVector[i] = (byte) floatQueryVector[i];
             }
-            return VectorScorers.createScorer(
-                iteratorValues, byteQueryVector, scoreMode, spaceType, acceptedChildrenIterator, parentBitSet
+            baseScorer = VectorScorers.createScorer(
+                iteratorValues, byteQueryVector, scoreMode, spaceType, null, null
             );
+        } else {
+            // Float vector path
+            final SegmentLevelQuantizationInfo quantizationInfo = SegmentLevelQuantizationInfo.build(reader, fieldInfo, context.getField());
+
+            if (quantizationInfo == null || !context.isUseQuantizedVectorsForSearch()) {
+                baseScorer = VectorScorers.createScorer(
+                    iteratorValues, context.getFloatQueryVector(), scoreMode, spaceType, null, null
+                );
+            } else {
+                // Quantized path — need byte vector values
+                final KNNVectorValues<?> quantizedValues = KNNVectorValuesFactory.getVectorValues(fieldInfo, reader, true);
+                final KNNVectorValuesIterator.DocIdsIteratorValues quantizedIteratorValues =
+                    (KNNVectorValuesIterator.DocIdsIteratorValues) quantizedValues.getVectorValuesIterator();
+
+                if (SegmentLevelQuantizationUtil.isAdcEnabled(quantizationInfo)) {
+                    SegmentLevelQuantizationUtil.transformVectorWithADC(context.getFloatQueryVector(), quantizationInfo, spaceType);
+                    baseScorer = VectorScorers.createScorer(
+                        quantizedIteratorValues, context.getFloatQueryVector(), scoreMode, spaceType, null, null
+                    );
+                } else {
+                    final byte[] quantizedQueryVector = SegmentLevelQuantizationUtil.quantizeVector(context.getFloatQueryVector(), quantizationInfo);
+                    baseScorer = VectorScorers.createScorer(
+                        quantizedIteratorValues, quantizedQueryVector, scoreMode, SpaceType.HAMMING, null, null
+                    );
+                }
+            }
         }
 
-        // Float vector path
-        final SegmentLevelQuantizationInfo quantizationInfo = SegmentLevelQuantizationInfo.build(reader, fieldInfo, context.getField());
-
-        if (quantizationInfo == null || !context.isUseQuantizedVectorsForSearch()) {
-            return VectorScorers.createScorer(
-                iteratorValues, context.getFloatQueryVector(), scoreMode, spaceType, acceptedChildrenIterator, parentBitSet
-            );
+        // Wrap with nested scorer if needed
+        if (isNestedRequired) {
+            return new NestedBestChildVectorScorer(acceptedChildrenIterator, parentBitSet, baseScorer);
         }
 
-        // Quantized path — need byte vector values
-        final KNNVectorValues<?> quantizedValues = KNNVectorValuesFactory.getVectorValues(fieldInfo, reader, true);
-        final KNNVectorValuesIterator.DocIdsIteratorValues quantizedIteratorValues =
-            (KNNVectorValuesIterator.DocIdsIteratorValues) quantizedValues.getVectorValuesIterator();
-
-        if (SegmentLevelQuantizationUtil.isAdcEnabled(quantizationInfo)) {
-            SegmentLevelQuantizationUtil.transformVectorWithADC(context.getFloatQueryVector(), quantizationInfo, spaceType);
-            return VectorScorers.createScorer(
-                quantizedIteratorValues, context.getFloatQueryVector(), scoreMode, spaceType,
-                acceptedChildrenIterator, parentBitSet
-            );
-        }
-
-        final byte[] quantizedQueryVector = SegmentLevelQuantizationUtil.quantizeVector(context.getFloatQueryVector(), quantizationInfo);
-        return VectorScorers.createScorer(
-            quantizedIteratorValues, quantizedQueryVector, scoreMode, SpaceType.HAMMING,
-            acceptedChildrenIterator, parentBitSet
-        );
+        return baseScorer;
     }
 
     @Value

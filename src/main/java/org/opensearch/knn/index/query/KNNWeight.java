@@ -36,6 +36,8 @@ import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.quantizationservice.QuantizationService;
 import org.opensearch.knn.index.query.exactsearch.ExactSearcher;
 import org.opensearch.knn.index.query.exactsearch.ExactSearcher.ExactSearcherContext.ExactSearcherContextBuilder;
+import org.opensearch.knn.index.query.exactsearch.ExactKNNScorer;
+import org.opensearch.knn.index.query.exactsearch.ExactKNNScorer.ExactScorerContext;
 import org.opensearch.knn.index.query.explain.KnnExplanation;
 import org.opensearch.knn.indices.ModelDao;
 import org.opensearch.knn.indices.ModelMetadata;
@@ -78,6 +80,7 @@ public abstract class KNNWeight extends Weight {
     protected static final TopDocs EMPTY_TOPDOCS = new TopDocs(new TotalHits(0, TotalHits.Relation.EQUAL_TO), new ScoreDoc[0]);
     private static ModelDao modelDao;
     private static ExactSearcher DEFAULT_EXACT_SEARCHER;
+    private static ExactKNNScorer DEFAULT_EXACT_KNN_SCORER;
 
     protected final KNNQuery knnQuery;
     private final float boost;
@@ -85,6 +88,7 @@ public abstract class KNNWeight extends Weight {
     @Getter
     private final Weight filterWeight;
     private final ExactSearcher exactSearcher;
+    private final ExactKNNScorer exactKNNScorer;
 
     protected final QuantizationService quantizationService;
     private final KnnExplanation knnExplanation;
@@ -100,18 +104,25 @@ public abstract class KNNWeight extends Weight {
         this.boost = boost;
         this.filterWeight = filterWeight;
         this.exactSearcher = DEFAULT_EXACT_SEARCHER;
+        this.exactKNNScorer = DEFAULT_EXACT_KNN_SCORER;
         this.quantizationService = QuantizationService.getInstance();
         this.knnExplanation = new KnnExplanation();
     }
 
     public static void initialize(ModelDao modelDao) {
-        initialize(modelDao, new ExactSearcher(modelDao));
+        initialize(modelDao, new ExactSearcher(modelDao), new ExactKNNScorer(modelDao));
     }
 
     @VisibleForTesting
     static void initialize(ModelDao modelDao, ExactSearcher exactSearcher) {
+        initialize(modelDao, exactSearcher, new ExactKNNScorer(modelDao));
+    }
+
+    @VisibleForTesting
+    static void initialize(ModelDao modelDao, ExactSearcher exactSearcher, ExactKNNScorer exactKNNScorer) {
         KNNWeight.modelDao = modelDao;
         KNNWeight.DEFAULT_EXACT_SEARCHER = exactSearcher;
+        KNNWeight.DEFAULT_EXACT_KNN_SCORER = exactKNNScorer;
     }
 
     @VisibleForTesting
@@ -407,11 +418,10 @@ public abstract class KNNWeight extends Weight {
         final long numberOfAcceptedDocs,
         final int k
     ) throws IOException {
-        final ExactSearcherContextBuilder exactSearcherContextBuilder = ExactSearcher.ExactSearcherContext.builder()
+        // Use ExactKNNScorer for better performance
+        final ExactScorerContext exactScorerContext = ExactScorerContext.builder()
             .parentsFilter(knnQuery.getParentsFilter())
             .k(k)
-            // setting to true, so that if quantization details are present we want to do search on the quantized
-            // vectors as this flow is used in first pass of search.
             .useQuantizedVectorsForSearch(true)
             .field(knnQuery.getField())
             .radius(knnQuery.getRadius())
@@ -419,13 +429,11 @@ public abstract class KNNWeight extends Weight {
             .numberOfMatchedDocs(numberOfAcceptedDocs)
             .floatQueryVector(knnQuery.getQueryVector())
             .byteQueryVector(knnQuery.getByteQueryVector())
-            .isMemoryOptimizedSearchEnabled(knnQuery.isMemoryOptimizedSearch());
+            .isMemoryOptimizedSearchEnabled(knnQuery.isMemoryOptimizedSearch())
+            .maxResultWindow(knnQuery.getContext() != null ? knnQuery.getContext().getMaxResultWindow() : null)
+            .build();
 
-        if (knnQuery.getContext() != null) {
-            exactSearcherContextBuilder.maxResultWindow(knnQuery.getContext().getMaxResultWindow());
-        }
-
-        return exactSearch(context, exactSearcherContextBuilder.build());
+        return exactKNNScorer.searchLeaf(context, exactScorerContext);
     }
 
     /**
@@ -600,6 +608,20 @@ public abstract class KNNWeight extends Weight {
         TopDocs exactSearchResults = exactSearcher.searchLeaf(leafReaderContext, exactSearcherContext);
         final SegmentReader reader = Lucene.segmentReader(leafReaderContext.reader());
         stopStopWatchAndLog(log, stopWatch, "Exact search", knnQuery.getShardId(), reader.getSegmentName(), knnQuery.getField());
+        return exactSearchResults;
+    }
+
+    /**
+     * Execute exact search using ExactKNNScorer for the given matched doc ids and return the results.
+     * @return TopDocs containing the exact search results.
+     * @throws IOException If an error occurs during the search.
+     */
+    public TopDocs exactSearch(final LeafReaderContext leafReaderContext, final ExactScorerContext exactScorerContext)
+        throws IOException {
+        final StopWatch stopWatch = startStopWatch(log);
+        TopDocs exactSearchResults = exactKNNScorer.searchLeaf(leafReaderContext, exactScorerContext);
+        final SegmentReader reader = Lucene.segmentReader(leafReaderContext.reader());
+        stopStopWatchAndLog(log, stopWatch, "Exact search (ExactKNNScorer)", knnQuery.getShardId(), reader.getSegmentName(), knnQuery.getField());
         return exactSearchResults;
     }
 
