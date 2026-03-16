@@ -32,6 +32,7 @@ import org.opensearch.cluster.ClusterState;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.VectorDataType;
+import org.opensearch.knn.index.query.exactsearch.ExactKNNScorer;
 import org.opensearch.knn.index.query.exactsearch.ExactSearcher;
 import org.opensearch.knn.index.query.KNNQuery;
 import org.opensearch.knn.index.query.KNNWeight;
@@ -335,8 +336,8 @@ public class NativeEngineKNNVectorQueryTests extends OpenSearchTestCase {
         when(knnWeight.getQuery()).thenReturn(knnQuery);
         when(knnWeight.searchLeaf(leaf1, firstPassK)).thenReturn(initialLeaf1Results);
         when(knnWeight.searchLeaf(leaf2, firstPassK)).thenReturn(initialLeaf2Results);
-        when(knnWeight.exactSearch(eq(leaf1), any())).thenReturn(buildTopDocs(rescoredLeaf1Results));
-        when(knnWeight.exactSearch(eq(leaf2), any())).thenReturn(buildTopDocs(rescoredLeaf2Results));
+        when(knnWeight.exactSearch(eq(leaf1), any(ExactKNNScorer.ExactScorerContext.class))).thenReturn(buildTopDocs(rescoredLeaf1Results));
+        when(knnWeight.exactSearch(eq(leaf2), any(ExactKNNScorer.ExactScorerContext.class))).thenReturn(buildTopDocs(rescoredLeaf2Results));
         when(searcher.getIndexReader()).thenReturn(reader);
 
         try (
@@ -475,8 +476,8 @@ public class NativeEngineKNNVectorQueryTests extends OpenSearchTestCase {
         when(knnWeight.searchLeaf(leaf1, firstPassK)).thenReturn(initialLeaf1Results);
         when(knnWeight.searchLeaf(leaf2, firstPassK)).thenReturn(initialLeaf2Results);
 
-        when(knnWeight.exactSearch(eq(leaf1), any())).thenReturn(topDocs1);
-        when(knnWeight.exactSearch(eq(leaf2), any())).thenReturn(topDocs2);
+        when(knnWeight.exactSearch(eq(leaf1), any(ExactKNNScorer.ExactScorerContext.class))).thenReturn(topDocs1);
+        when(knnWeight.exactSearch(eq(leaf2), any(ExactKNNScorer.ExactScorerContext.class))).thenReturn(topDocs2);
         when(searcher.getIndexReader()).thenReturn(reader);
 
         try (
@@ -575,8 +576,8 @@ public class NativeEngineKNNVectorQueryTests extends OpenSearchTestCase {
         when(knnQuery.getParentsFilter()).thenReturn(parentFilter);
         when(knnWeight.searchLeaf(leaf1, k)).thenReturn(initialLeaf1Results);
         when(knnWeight.searchLeaf(leaf2, k)).thenReturn(initialLeaf2Results);
-        when(knnWeight.exactSearch(eq(leaf1), any())).thenReturn(buildTopDocs(exactSearchLeaf1Result));
-        when(knnWeight.exactSearch(eq(leaf2), any())).thenReturn(buildTopDocs(exactSearchLeaf2Result));
+        when(knnWeight.exactSearch(eq(leaf1), any(ExactKNNScorer.ExactScorerContext.class))).thenReturn(buildTopDocs(exactSearchLeaf1Result));
+        when(knnWeight.exactSearch(eq(leaf2), any(ExactKNNScorer.ExactScorerContext.class))).thenReturn(buildTopDocs(exactSearchLeaf2Result));
         Weight filterWeight = mock(Weight.class);
         when(knnWeight.getFilterWeight()).thenReturn(filterWeight);
 
@@ -768,7 +769,7 @@ public class NativeEngineKNNVectorQueryTests extends OpenSearchTestCase {
                 return new PerLeafResult(null, 0, topDocs, PerLeafResult.SearchMode.APPROXIMATE_SEARCH);
             });
 
-            when(weight.exactSearch(any(), any())).thenAnswer(invocation -> {
+            when(weight.exactSearch(any(), any(ExactKNNScorer.ExactScorerContext.class))).thenAnswer(invocation -> {
                 // Make dummy results and return for exactSearch which is called when rescoring is enabled.
                 ExactSearcher.ExactSearcherContext context = invocation.getArgument(1);
                 final int passedK = context.getK();
