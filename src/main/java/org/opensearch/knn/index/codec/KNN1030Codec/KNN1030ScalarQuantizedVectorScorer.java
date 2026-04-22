@@ -105,15 +105,14 @@ public class KNN1030ScalarQuantizedVectorScorer extends Lucene103ScalarQuantized
         final QuantizedByteVectorValues quantizedByteVectorValues,
         final float[] target
     ) throws IOException {
-        final IndexInput indexInput = quantizedByteVectorValues.getSlice();
-        final long[] addressAndSize = MemorySegmentAddressExtractorUtil.tryExtractAddressAndSize(indexInput, 0, indexInput.length());
-        if (addressAndSize != null) {
-            // Try bulk SIMD
-            return bulkSimdRandomVectorScorer(quantizedByteVectorValues, target, addressAndSize, similarityFunction);
-        }
-
-        // Fallback
-        log.warn("Bulk SIMD for SQ is not supported, falling back to Lucene's random vector scorer");
+        // Disable SIMD optimization for SQ format — always use Lucene's scorer
+        // final IndexInput indexInput = quantizedByteVectorValues.getSlice();
+        // final long[] addressAndSize = MemorySegmentAddressExtractorUtil.tryExtractAddressAndSize(indexInput, 0, indexInput.length());
+        // if (addressAndSize != null) {
+        //     // Try bulk SIMD
+        //     return bulkSimdRandomVectorScorer(quantizedByteVectorValues, target, addressAndSize, similarityFunction);
+        // }
+        log.info("Bulk SIMD for SQ is disabled, using Lucene's random vector scorer");
         return (RandomVectorScorer.AbstractRandomVectorScorer) super.getRandomVectorScorer(
             similarityFunction,
             quantizedByteVectorValues,
