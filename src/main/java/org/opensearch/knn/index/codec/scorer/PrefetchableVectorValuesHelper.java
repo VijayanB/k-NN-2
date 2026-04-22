@@ -41,7 +41,12 @@ class PrefetchableVectorValuesHelper {
     public static void doPrefetch(final KnnVectorValues vectorValues, final int[] nodes, final int numNodes) throws IOException {
         if (vectorValues instanceof HasIndexSlice vectorValuesWithSlice && vectorValuesWithSlice.getSlice() != null) {
             // passing base offset as 0, since the index input is a slice and its base offset is 0.
-            log.info("Prefetching {} nodes from {}, slice class: {}", numNodes, vectorValues.getClass().getSimpleName(), vectorValuesWithSlice.getSlice().getClass().getName());
+            log.info(
+                "Prefetching {} nodes from {}, slice class: {}",
+                numNodes,
+                vectorValues.getClass().getSimpleName(),
+                vectorValuesWithSlice.getSlice().getClass().getName()
+            );
             PrefetchHelper.prefetch(vectorValuesWithSlice.getSlice(), 0, vectorValues.getVectorByteLength(), nodes, numNodes);
         } else {
             log.warn("Not able to do prefetch on instance {}", vectorValues.getClass().getSimpleName());

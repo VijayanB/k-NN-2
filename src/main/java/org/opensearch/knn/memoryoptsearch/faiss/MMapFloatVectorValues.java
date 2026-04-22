@@ -84,7 +84,11 @@ public class MMapFloatVectorValues extends FloatVectorValues implements MMapVect
     public IndexInput getSlice() {
         if (delegate instanceof HasIndexSlice hasIndexSlice) {
             IndexInput slice = hasIndexSlice.getSlice();
-            log.info("getSlice called, delegate class: {}, slice class: {}", delegate.getClass().getName(), slice != null ? slice.getClass().getName() : "null");
+            log.info(
+                "getSlice called, delegate class: {}, slice class: {}",
+                delegate.getClass().getName(),
+                slice != null ? slice.getClass().getName() : "null"
+            );
             return slice;
         }
         return null;

@@ -209,7 +209,7 @@ public class FaissScalarQuantizedBulkSimdScorerTests extends KNNTestCase {
                     float actual = testScorer.score(ord);
                     // SIMD disabled for SQ — both scorers use Lucene's path, no conversion needed
                     // if (isCosine) {
-                    //     actual = convertMaxIpToCosineScore(actual);
+                    // actual = convertMaxIpToCosineScore(actual);
                     // }
                     float expected = truthScorer.score(ord);
                     assertEquals("Score mismatch at ord=" + ord + " for " + similarityFunction, expected, actual, 1e-2);
@@ -230,7 +230,7 @@ public class FaissScalarQuantizedBulkSimdScorerTests extends KNNTestCase {
                         float actualBulk = bulkScores[j];
                         // SIMD disabled for SQ — both scorers use Lucene's path, no conversion needed
                         // if (isCosine) {
-                        //     actualBulk = convertMaxIpToCosineScore(actualBulk);
+                        // actualBulk = convertMaxIpToCosineScore(actualBulk);
                         // }
                         float expected = truthScorer.score(ords[j]);
                         assertEquals(
