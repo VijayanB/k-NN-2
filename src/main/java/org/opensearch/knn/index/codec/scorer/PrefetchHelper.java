@@ -107,6 +107,6 @@ public class PrefetchHelper {
         long lastOffset = baseOffset + (long) ordsToPrefetch[numOrds - 1] * oneVectorByteSize;
         indexInput.prefetch(groupStartOffset, (lastOffset + oneVectorByteSize) - groupStartOffset);
 
-        log.trace("Prefetching grouped [{}] vectors where num of ords was [{}] using exact prefetch size", groupCount, numOrds);
+        log.info("Prefetched grouped [{}] vectors where num of ords was [{}] using exact prefetch size", groupCount, numOrds);
     }
 }
