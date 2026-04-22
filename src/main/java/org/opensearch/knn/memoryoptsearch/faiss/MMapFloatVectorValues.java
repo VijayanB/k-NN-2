@@ -6,6 +6,7 @@
 package org.opensearch.knn.memoryoptsearch.faiss;
 
 import lombok.Getter;
+import lombok.extern.log4j.Log4j2;
 import org.apache.lucene.codecs.lucene95.HasIndexSlice;
 import org.apache.lucene.index.FloatVectorValues;
 import org.apache.lucene.store.IndexInput;
@@ -23,6 +24,7 @@ import java.io.IOException;
  * underlying implementation. The class also implements {@link HasIndexSlice} to provide access to the
  * backing {@link IndexInput} for prefetching or sequential reads.
  */
+@Log4j2
 public class MMapFloatVectorValues extends FloatVectorValues implements MMapVectorValues, HasIndexSlice {
     // It has address and size per MemorySegment extracted from MemorySegmentIndexInput.
     // e.g. address_i = addressAndSize[i], mapped_size_i = addressAndSize[i + 1]
@@ -81,7 +83,9 @@ public class MMapFloatVectorValues extends FloatVectorValues implements MMapVect
     @Override
     public IndexInput getSlice() {
         if (delegate instanceof HasIndexSlice hasIndexSlice) {
-            return hasIndexSlice.getSlice();
+            IndexInput slice = hasIndexSlice.getSlice();
+            log.info("getSlice called, delegate class: {}, slice class: {}", delegate.getClass().getName(), slice != null ? slice.getClass().getName() : "null");
+            return slice;
         }
         return null;
     }
